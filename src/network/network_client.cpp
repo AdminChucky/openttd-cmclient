@@ -1201,6 +1201,8 @@ NetworkRecvStatus ClientNetworkGameSocketHandler::Receive_SERVER_CONFIG_UPDATE(P
 	_network_server_name = p.Recv_string(NETWORK_NAME_LENGTH);
 
 	InvalidateWindowData(WC_CLIENT_LIST, 0);
+	CSleep(3 * MILLISECONDS_PER_TICK);
+	citymania::ShowLoginWindow(); //@cm_commands_gui.cpp
 
 	Debug(net, 9, "Client::Receive_SERVER_CONFIG_UPDATE(): max_companies={}", _network_server_max_companies);
 
