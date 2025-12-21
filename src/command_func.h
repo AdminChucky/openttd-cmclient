@@ -39,6 +39,7 @@ namespace citymania {
 static const CommandCost CMD_ERROR = CommandCost(INVALID_STRING_ID);
 
 void NetworkSendCommand(Commands cmd, StringID err_message, CommandCallback *callback, CompanyID company, const CommandDataBuffer &cmd_data);
+bool IsNetworkRegisteredCallback(CommandCallback *callback);
 
 bool IsValidCommand(Commands cmd);
 CommandFlags GetCommandFlags(Commands cmd);
@@ -208,6 +209,7 @@ public:
 	template <typename Tcallback>
 	static bool Post(StringID err_message, Tcallback *callback, Targs... args)
 	{
+		assert(::IsNetworkRegisteredCallback(reinterpret_cast<CommandCallback *>(reinterpret_cast<void(*)()>(callback))));
 		return InternalPost(err_message, callback, true, false, std::forward_as_tuple(args...));
 	}
 
