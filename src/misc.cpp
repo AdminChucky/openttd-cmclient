@@ -101,6 +101,7 @@ void InitializeGame(uint size_x, uint size_y, bool reset_date, bool reset_settin
 	_game_speed = 100;
 	citymania::_pause_countdown = 0;
 	TimerGameTick::counter = 0;
+	TimerGameEconomy::days_since_last_month = 0;
 	_cur_tileloop_tile = TileIndex{1};
 	_thd.redsq = INVALID_TILE;
 	if (reset_settings) MakeNewgameSettingsLive();
