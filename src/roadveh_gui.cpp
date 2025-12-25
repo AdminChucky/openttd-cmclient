@@ -52,7 +52,7 @@ void DrawRoadVehDetails(const Vehicle *v, const Rect &r)
 			}
 		}
 
-		std::string capacity = GetString(STR_VEHICLE_DETAILS_TRAIN_ARTICULATED_RV_CAPACITY);
+		std::string capacity;
 		std::string_view list_separator = GetListSeparator();
 
 		bool first = true;
@@ -72,7 +72,7 @@ void DrawRoadVehDetails(const Vehicle *v, const Rect &r)
 			}
 		}
 
-		DrawString(r.left, r.right, y, capacity, TC_BLUE);
+		DrawString(r.left, r.right, y, GetString(STR_VEHICLE_DETAILS_TRAIN_ARTICULATED_RV_CAPACITY, capacity), TC_BLUE);
 		y += GetCharacterHeight(FS_NORMAL) + WidgetDimensions::scaled.vsep_normal;
 
 		for (const Vehicle *u = v; u != nullptr; u = u->Next()) {
