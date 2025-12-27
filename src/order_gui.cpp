@@ -434,7 +434,7 @@ static std::pair<Order, citymania::FeederOrderMod> GetOrderCmdFromTile(const Veh
 			v->type == VEH_ROAD &&
 			IsTileOwner(tile, _local_company)) {
 		order.MakeGoToWaypoint(GetStationIndex(tile));
-		if (_settings_client.gui.new_nonstop != _ctrl_pressed) order.SetNonStopType({OrderNonStopFlag::NoIntermediate, OrderNonStopFlag::NoDestination});
+		if (_settings_client.gui.new_nonstop != citymania::_fn_mod) order.SetNonStopType({OrderNonStopFlag::NoIntermediate, OrderNonStopFlag::NoDestination});
 		return std::make_pair(order, citymania::FeederOrderMod::None);
 	}
 
