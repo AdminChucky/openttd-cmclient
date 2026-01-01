@@ -63,7 +63,7 @@
 
 
 /* CM static */ RailType _cur_railtype;               ///< Rail type of the current build-rail toolbar.
-static bool _remove_button_clicked;          ///< Flag whether 'remove' toggle-button is currently enabled
+/* CM static */ extern bool _remove_button_clicked;          ///< Flag whether 'remove' toggle-button is currently enabled
 static bool _cm_invert_remove;                  ///< Invert remove mode on tools (when fn-clicked)
 /* CM static */ DiagDirection _build_depot_direction; ///< Currently selected depot direction
 static bool _convert_signal_button;          ///< convert signal button in the signal GUI pressed

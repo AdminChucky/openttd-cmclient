@@ -73,6 +73,10 @@ This is usable for any OpenTTD servers
 
 
 == CHANGELOG ==
+
+*** 15.0 ***
+- Fixed bulldozing train stations (#50).
+
 *** 14.1 ***
 - Fixed polyrail endpoint update when removing rail.
 - Fixed industry blinking rate on minimap.
