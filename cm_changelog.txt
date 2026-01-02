@@ -75,6 +75,7 @@ This is usable for any OpenTTD servers
 == CHANGELOG ==
 
 *** 15.0 ***
+- Fixed crash when building a station after some got removed (#48).
 - Fixed bulldozing train stations (#50).
 
 *** 14.1 ***
