@@ -7,9 +7,15 @@
 
 /** @file intro_gui.cpp The main menu GUI. */
 
+#include "fontcache.h"
+#include "gfx_type.h"
+#include "goal_type.h"
+#include "palette_func.h"
+#include "sortlist_type.h"
 #include "stdafx.h"
 #include "error.h"
 #include "gui.h"
+#include "widget_type.h"
 #include "window_gui.h"
 #include "window_func.h"
 #include "textbuf_gui.h"
@@ -27,13 +33,17 @@
 #include "game/game_gui.hpp"
 #include "gfx_func.h"
 #include "core/string_consumer.hpp"
+#include "dropdown_func.h"
 #include "language.h"
 #include "rev.h"
 #include "highscore.h"
 #include "signs_base.h"
 #include "viewport_func.h"
 #include "vehicle_base.h"
+#include <cstddef>
+#include <cstdint>
 #include <regex>
+#include <string>
 
 #include "widgets/intro_widget.h"
 
@@ -44,6 +54,65 @@
 
 #include "safeguards.h"
 
+using namespace std::string_literals;
+
+namespace  {
+	TextColour climateColour(LandscapeType climate)
+	{
+		switch(climate)
+		{
+			case LandscapeType::Arctic:
+				return TC_BLUE;
+			case LandscapeType::Temperate:
+				return TC_GREEN;
+			case LandscapeType::Toyland:
+				return TC_PURPLE;
+			case LandscapeType::Tropic:
+				return TC_GOLD;
+			default:
+				return TC_WHITE;
+		}
+	}
+
+	void drawPercentBar(Rect &area, double per)
+	{
+		PixelColour colour_done = GetColourGradient(COLOUR_GREEN, SHADE_LIGHT);
+		PixelColour colour_notdone = GetColourGradient(COLOUR_GREY, SHADE_DARK);
+
+		uint32_t total = area.right - area.left;
+		uint32_t middle = total * per;
+		Rect green = area.WithWidth(middle, false);
+		Rect red = area.WithWidth(total - middle, true);
+
+		if (middle != 100)  GfxFillRect(red, colour_notdone );
+		if (middle != 0) GfxFillRect(green, colour_done );
+
+		/* Draw it */
+		DrawString(area, GetString(STR_PERFORMANCE_DETAIL_PERCENT, 100 * per), TC_WHITE, SA_HOR_CENTER);
+	}
+}
+using GoalTypeID = uint32_t;
+using CommunityID = uint32_t;
+
+struct ServerInfo {
+	CommunityID cid;
+	std::string name;
+	std::string address;
+	uint32_t port;
+	uint32_t goal;
+	double main_goal_completion;
+	double sub_goal_completion;
+	uint32_t starting_year;
+	uint32_t current_year;
+	uint32_t end_year;
+	LandscapeType climateID;
+	GoalTypeID gid;
+};
+
+struct ServerFilter {
+	CommunityID cid;
+	GoalTypeID gid;
+};
 
 /**
  * A viewport command for the main menu background (intro game).
@@ -101,6 +170,10 @@ struct IntroGameViewportCommand {
 
 
 struct SelectGameWindow : public Window {
+	typedef GUIList<const ServerInfo *, std::nullptr_t, ServerFilter&> ServerList;
+	static const std::initializer_list<ServerList::SortFunction * const> sorter_funcs;   ///< Sorter functions
+	static const std::initializer_list<ServerList::FilterFunction * const> filter_funcs; ///< Filter functions.
+	ServerList content{};
 	/** Vector of viewport commands parsed. */
 	std::vector<IntroGameViewportCommand> intro_viewport_commands{};
 	/** Index of currently active viewport command. */
@@ -109,7 +182,40 @@ struct SelectGameWindow : public Window {
 	uint cur_viewport_command_time = 0;
 	uint mouse_idle_time = 0;
 	Point mouse_idle_pos{};
+	Scrollbar *vscroll = nullptr; ///< Cache of the vertical scrollbar
 
+	static inline const StringID communities[] = {
+		CM_STR_INTRO_COMMUNITY_CARD_ANY_COMMUNITY,
+		CM_STR_INTRO_COMMUNITY_CARD_NICE,
+		CM_STR_INTRO_COMMUNITY_CARD_BTPRO,
+		CM_STR_INTRO_COMMUNITY_CARD_CITYMANIA,
+	};
+
+	static inline const StringID goal_types[] = {
+		CM_STR_INTRO_COMMUNITY_CARD_ANY_GOAL,
+		CM_STR_INTRO_COMMUNITY_CARD_GOAL_TYPE_CV,
+		CM_STR_INTRO_COMMUNITY_CARD_GOAL_TYPE_CB,
+	};
+
+	static inline const StringID climates[] = {
+		CM_STR_INTRO_COMMUNITY_CARD_ANY_CLIMATE,
+		CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_ARTIC,
+		CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_TEMPERATE,
+		CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_TOYLAND,
+		CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_TROPIC,
+	};
+
+	static inline const StringID durations[] = {
+		CM_STR_INTRO_COMMUNITY_CARD_ANY_DURATION,
+		CM_STR_INTRO_COMMUNITY_CARD_DURATION_SHORT,
+		CM_STR_INTRO_COMMUNITY_CARD_DURATION_MEDIUM,
+		CM_STR_INTRO_COMMUNITY_CARD_DURATION_LONG,
+	};
+
+	static inline const StringID goal_countables[] = {
+		CM_STR_INTRO_COMMUNITY_CARD_GOAL_CV,
+		CM_STR_INTRO_COMMUNITY_CARD_GOAL_POP,
+	};
 	/**
 	 * Find and parse all viewport command signs.
 	 * Fills the intro_viewport_commands vector and deletes parsed signs from the world.
@@ -182,10 +288,146 @@ struct SelectGameWindow : public Window {
 	SelectGameWindow(WindowDesc &desc) : Window(desc), mouse_idle_pos(_cursor.pos)
 	{
 		this->CreateNestedTree();
+		this->vscroll = this->GetScrollbar(WID_SGI_SERVER_LIST_SCROLLBAR);
 		this->FinishInitNested(0);
 		this->OnInvalidateData();
 
+		content.push_back( 
+			new ServerInfo {
+				.cid = 0,
+				.name = "#1 CV"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3981,
+				.goal = 5000,
+				.main_goal_completion = 0.93,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 2018,
+				.end_year = 2100,
+				.climateID = LandscapeType::Arctic,
+				.gid = 1,
+			});
+		content.push_back( 
+			new ServerInfo {
+				.cid = 0,
+				.name = "#2 CV"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3982,
+				.goal = 5000,
+				.main_goal_completion = 0.53,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 2061,
+				.end_year = 2100,
+				.climateID = LandscapeType::Temperate,
+				.gid = 1,
+			}
+		);
+		content.push_back( 
+			new ServerInfo {
+				.cid = 1,
+				.name = "#3 CV"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3982,
+				.goal = 5000,
+				.main_goal_completion = 0.33,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 2098,
+				.end_year = 2100,
+				.climateID = LandscapeType::Toyland,
+				.gid = 1,
+			}
+		);
+		content.push_back( 
+			new ServerInfo {
+				.cid = 1,
+				.name = "#3 CV"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3982,
+				.goal = 5000,
+				.main_goal_completion = 0.33,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 2000,
+				.end_year = 2100,
+				.climateID = LandscapeType::Tropic,
+				.gid = 1,
+			}
+		);
+		content.push_back( 
+			new ServerInfo {
+				.cid = 2,
+				.name = "#4 Long Description CV"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3982,
+				.goal = 5000,
+				.main_goal_completion = 0.99,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 2099,
+				.end_year = 2100,
+				.climateID = LandscapeType::Tropic,
+				.gid = 0,
+			}
+		);
+		content.push_back( 
+			new ServerInfo {
+				.cid = 2,
+				.name = "#1 Even Longer Description CB"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3982,
+				.goal = 5000,
+				.main_goal_completion = 0.00,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 2070,
+				.end_year = 2100,
+				.climateID = LandscapeType::Temperate,
+				.gid = 1,
+			}
+		);
+		content.push_back( 
+			new ServerInfo {
+				.cid = 2,
+				.name = "#5 Even Longer Description CB"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3982,
+				.goal = 5000,
+				.main_goal_completion = 0.00,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 1999,
+				.end_year = 2100,
+				.climateID = LandscapeType::Temperate,
+				.gid = 1,
+			}
+		);
+		content.push_back( 
+			new ServerInfo {
+				.cid = 1,
+				.name = "#19 Even Longer Description CB"s,
+				.address = "openttd.boxxor.net"s,
+				.port = 3982,
+				.goal = 5000,
+				.main_goal_completion = 0.00,
+				.sub_goal_completion = 0.70,
+				.starting_year = 1999,
+				.current_year = 2011,
+				.end_year = 2100,
+				.climateID = LandscapeType::Arctic,
+				.gid = 1,
+			}
+		);
+
+		this->GetWidget<NWidgetCore>(WID_SGI_DROPDOWN_COMMUNITY)->SetString(SelectGameWindow::communities[0]);
+		this->GetWidget<NWidgetCore>(WID_SGI_DROPDOWN_CLIMATE)->SetString(SelectGameWindow::climates[0]);
+		this->GetWidget<NWidgetCore>(WID_SGI_DROPDOWN_DURATION)->SetString(SelectGameWindow::durations[0]);
+		this->GetWidget<NWidgetCore>(WID_SGI_DROPDOWN_GOAL_TYPE)->SetString(SelectGameWindow::goal_types[0]);
+
 		this->ReadIntroGameViewportCommands();
+
+		this->vscroll->SetCount(this->content.size()); // Update the scrollbar
 	}
 
 	void OnRealtimeTick(uint delta_ms) override
@@ -265,6 +507,7 @@ struct SelectGameWindow : public Window {
 		this->GetWidget<NWidgetStacked>(WID_SGI_TRANSLATION_SELECTION)->SetDisplayedPlane(missing_lang ? 0 : SZSP_NONE);
 	}
 
+
 	void DrawWidget(const Rect &r, WidgetID widget) const override
 	{
 		switch (widget) {
@@ -275,11 +518,39 @@ struct SelectGameWindow : public Window {
 			case WID_SGI_TRANSLATION:
 				DrawStringMultiLine(r, GetString(STR_INTRO_TRANSLATION, _current_language->missing), TC_FROMSTRING, SA_CENTER);
 				break;
+
+			case WID_SGI_SERVER_LIST:
+				const NWidgetBase *nwid = this->GetWidget<NWidgetBase>(widget);
+				Rect tr = r.WithHeight(nwid->resize_y).Shrink(WidgetDimensions::scaled.matrix);
+
+				auto [first, last] = this->vscroll->GetVisibleRangeIterators(this->content);
+
+				for (auto iter = first; iter != last; iter++) {
+					const ServerInfo *ci = *iter;
+					// Background
+					//GfxFillRect(tr, climateColour(ci->climateID));
+
+					DrawString(tr.left, tr.right, tr.top, GetString(CM_STR_INTRO_COMMUNITY_CARD_TITLE, communities[ci->cid] + 1, ci->name), climateColour(ci->climateID), SA_LEFT);
+					DrawString(tr.left, tr.right, tr.top + WidgetDimensions::scaled.vsep_normal + GetCharacterHeight(FS_NORMAL), GetString(CM_STR_INTRO_COMMUNITY_CARD_GOAL, ci->goal, goal_countables[ci->gid], ci->goal * ci->main_goal_completion), TC_WHITE, SA_LEFT);
+					int top = tr.top + WidgetDimensions::scaled.vsep_normal + GetCharacterHeight(FS_NORMAL);
+					Rect bar = tr.WithY(top, top + GetCharacterHeight(FS_NORMAL));
+					bar.left = bar.right - bar.Width()/2;
+					drawPercentBar(bar, ci->main_goal_completion);
+
+					DrawString(tr.left, tr.right, tr.top + 2 * ( WidgetDimensions::scaled.vsep_normal + GetCharacterHeight(FS_NORMAL)), GetString(CM_STR_INTRO_COMMUNITY_CARD_YEAR, ci->starting_year, ci->end_year, ci->current_year), TC_WHITE, SA_LEFT);
+					top = top + WidgetDimensions::scaled.vsep_normal + GetCharacterHeight(FS_NORMAL);
+					bar = bar.WithY(top, top + GetCharacterHeight(FS_NORMAL));
+					drawPercentBar(bar, static_cast<double>(ci->current_year - ci->starting_year) / static_cast<double>(ci->end_year-ci->starting_year));
+					tr = tr.Translate(0, nwid->resize_y);
+				}
+				break;
 		}
 	}
 
 	void OnResize() override
 	{
+		this->vscroll->SetCapacityFromWidget(this, WID_SGI_SERVER_LIST);
+
 		bool changed = false;
 
 		if (NWidgetResizeBase *wid = this->GetWidget<NWidgetResizeBase>(WID_SGI_BASESET); wid != nullptr && wid->current_x > 0) {
@@ -340,51 +611,143 @@ struct SelectGameWindow : public Window {
 				}
 				break;
 			case WID_SGI_EXIT:            HandleExitGameRequest(); break;
+
+			case WID_SGI_DROPDOWN_COMMUNITY:
+				ShowDropDownMenu(this, SelectGameWindow::communities, 0, WID_SGI_DROPDOWN_COMMUNITY, 0, 0);
+				break;
+			case WID_SGI_DROPDOWN_GOAL_TYPE:
+				ShowDropDownMenu(this, SelectGameWindow::goal_types, 0, WID_SGI_DROPDOWN_GOAL_TYPE, 0, 0);
+				break;
+			case WID_SGI_DROPDOWN_DURATION:
+				ShowDropDownMenu(this, SelectGameWindow::durations, 0, WID_SGI_DROPDOWN_DURATION, 0, 0);
+				break;
+			case WID_SGI_DROPDOWN_CLIMATE:
+				ShowDropDownMenu(this, SelectGameWindow::climates, 0, WID_SGI_DROPDOWN_CLIMATE, 0, 0);
+				break;
 		}
+	}
+
+
+	void UpdateWidgetSize(WidgetID widget, Dimension &size, const Dimension &padding, Dimension &fill, Dimension &resize) override
+	{
+		switch (widget) {
+			case WID_SGI_SERVER_LIST:
+				size.width = fill.width = resize.width = GetCharacterHeight(FS_NORMAL) * 30;
+				fill.height = resize.height = GetCharacterHeight(FS_NORMAL) * 3 + (WidgetDimensions::scaled.vsep_normal + padding.height ) * 2;
+				Debug(misc, 0, "Resize {}", resize.height);
+				size.height = 5 * resize.height;
+
+				break;
+		}
+	}
+
+	void OnDropdownSelect(WidgetID widget, int index, int) override
+	{
+		switch (widget) {
+			case WID_SGI_DROPDOWN_COMMUNITY:
+			break;
+
+			case WID_SGI_DROPDOWN_GOAL_TYPE:
+			break;
+
+			case WID_SGI_DROPDOWN_CLIMATE:
+			break;
+		};
+	}
+
+	static bool NameSorter(const ServerInfo * const &a, const ServerInfo * const &b)
+	{
+		int r = StrNaturalCompare(a->name, b->name, true); // Sort by name (natural sorting).
+		if (r == 0) r = a->port - b->port;
+		return r < 0;
+	}
+
+
+	/** Sort the content list */
+	void SortContentList()
+	{
+		if (!this->content.Sort()) return;
+	}
+
+	/** Filter content by tags/name */
+	static bool CommunityFilter(const ServerInfo * const *a, ServerFilter &filter)
+	{
+		return (*a)->cid ==  filter.cid;
+	}
+	static bool GoalTypeFilter(const ServerInfo * const *a, ServerFilter &filter)
+	{
+		return (*a)->gid ==  filter.gid;
 	}
 };
 
+const std::initializer_list<SelectGameWindow::ServerList::SortFunction * const> SelectGameWindow::sorter_funcs = {
+	&NameSorter,
+};
+
+const std::initializer_list<SelectGameWindow::ServerList::FilterFunction * const> SelectGameWindow::filter_funcs = {
+	&CommunityFilter,
+	&GoalTypeFilter,
+};
+
 static constexpr std::initializer_list<NWidgetPart> _nested_select_game_widgets = {
-	NWidget(WWT_CAPTION, COLOUR_BROWN), SetStringTip(STR_INTRO_CAPTION),
-	NWidget(WWT_PANEL, COLOUR_BROWN),
-		NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.sparse),
+	NWidget(NWID_HORIZONTAL_LTR),
+		NWidget(NWID_VERTICAL),
+			NWidget(WWT_CAPTION, COLOUR_BROWN), SetStringTip(STR_INTRO_CAPTION),
+			NWidget(WWT_PANEL, COLOUR_BROWN),
+				NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_wide, 0), SetPadding(WidgetDimensions::unscaled.sparse),
 
-			/* Single player */
-			NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_GENERATE_GAME), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_LANDSCAPING, STR_INTRO_NEW_GAME, STR_INTRO_TOOLTIP_NEW_GAME), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_HEIGHTMAP), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SHOW_COUNTOURS, STR_INTRO_PLAY_HEIGHTMAP, STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_SCENARIO), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SUBSIDIES, STR_INTRO_PLAY_SCENARIO, STR_INTRO_TOOLTIP_PLAY_SCENARIO), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_LOAD_GAME), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SAVE, STR_INTRO_LOAD_GAME, STR_INTRO_TOOLTIP_LOAD_GAME), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_HIGHSCORE), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_COMPANY_LEAGUE, STR_INTRO_HIGHSCORE, STR_INTRO_TOOLTIP_HIGHSCORE), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-			EndContainer(),
+					/* Single player */
+					NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_GENERATE_GAME), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_LANDSCAPING, STR_INTRO_NEW_GAME, STR_INTRO_TOOLTIP_NEW_GAME), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_HEIGHTMAP), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SHOW_COUNTOURS, STR_INTRO_PLAY_HEIGHTMAP, STR_INTRO_TOOLTIP_PLAY_HEIGHTMAP), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_SCENARIO), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SUBSIDIES, STR_INTRO_PLAY_SCENARIO, STR_INTRO_TOOLTIP_PLAY_SCENARIO), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_LOAD_GAME), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SAVE, STR_INTRO_LOAD_GAME, STR_INTRO_TOOLTIP_LOAD_GAME), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_HIGHSCORE), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_COMPANY_LEAGUE, STR_INTRO_HIGHSCORE, STR_INTRO_TOOLTIP_HIGHSCORE), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+					EndContainer(),
 
-			/* Multi player */
-			NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_NETWORK), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_COMPANY_GENERAL, STR_INTRO_MULTIPLAYER, STR_INTRO_TOOLTIP_MULTIPLAYER), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-			EndContainer(),
+					/* Multi player */
+					NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_PLAY_NETWORK), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_COMPANY_GENERAL, STR_INTRO_MULTIPLAYER, STR_INTRO_TOOLTIP_MULTIPLAYER), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+					EndContainer(),
 
-			NWidget(NWID_SELECTION, INVALID_COLOUR, WID_SGI_BASESET_SELECTION),
-				NWidget(NWID_VERTICAL),
-					NWidget(WWT_EMPTY, INVALID_COLOUR, WID_SGI_BASESET), SetFill(1, 0),
+					NWidget(NWID_SELECTION, INVALID_COLOUR, WID_SGI_BASESET_SELECTION),
+						NWidget(NWID_VERTICAL),
+							NWidget(WWT_EMPTY, INVALID_COLOUR, WID_SGI_BASESET), SetFill(1, 0),
+						EndContainer(),
+					EndContainer(),
+
+					NWidget(NWID_SELECTION, INVALID_COLOUR, WID_SGI_TRANSLATION_SELECTION),
+						NWidget(NWID_VERTICAL),
+							NWidget(WWT_EMPTY, INVALID_COLOUR, WID_SGI_TRANSLATION), SetFill(1, 0),
+						EndContainer(),
+					EndContainer(),
+
+					/* Other */
+					NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_OPTIONS), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SETTINGS, STR_INTRO_GAME_OPTIONS, STR_INTRO_TOOLTIP_GAME_OPTIONS), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_CONTENT_DOWNLOAD), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SHOW_VEHICLES, STR_INTRO_ONLINE_CONTENT, STR_INTRO_TOOLTIP_ONLINE_CONTENT), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_EDIT_SCENARIO), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SMALLMAP, STR_INTRO_SCENARIO_EDITOR, STR_INTRO_TOOLTIP_SCENARIO_EDITOR), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+						NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_HELP), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_QUERY, STR_INTRO_HELP, STR_INTRO_TOOLTIP_HELP), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
+					EndContainer(),
+
+					NWidget(NWID_VERTICAL),
+						NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_EXIT), SetToolbarMinimalSize(1), SetStringTip(STR_INTRO_QUIT, STR_INTRO_TOOLTIP_QUIT),
+					EndContainer(),
+					NWidget(NWID_SPACER), SetFill(0, 1),
 				EndContainer(),
 			EndContainer(),
-
-			NWidget(NWID_SELECTION, INVALID_COLOUR, WID_SGI_TRANSLATION_SELECTION),
-				NWidget(NWID_VERTICAL),
-					NWidget(WWT_EMPTY, INVALID_COLOUR, WID_SGI_TRANSLATION), SetFill(1, 0),
-				EndContainer(),
+		EndContainer(),
+		NWidget(NWID_VERTICAL),
+			NWidget(WWT_CAPTION, COLOUR_GREY), SetStringTip(STR_INTRO_CAPTION),
+            NWidget(NWID_HORIZONTAL),
+				NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_SGI_DROPDOWN_COMMUNITY), SetFill(1,0), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
+				NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_SGI_DROPDOWN_GOAL_TYPE), SetFill(1,0), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
+				NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_SGI_DROPDOWN_DURATION), SetFill(1,0), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
+				NWidget(WWT_DROPDOWN, COLOUR_ORANGE, WID_SGI_DROPDOWN_CLIMATE), SetFill(1,0), SetToolTip(STR_TOOLTIP_SORT_CRITERIA),
 			EndContainer(),
-
-			/* Other */
-			NWidget(NWID_VERTICAL), SetPIP(0, WidgetDimensions::unscaled.vsep_normal, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_OPTIONS), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SETTINGS, STR_INTRO_GAME_OPTIONS, STR_INTRO_TOOLTIP_GAME_OPTIONS), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_CONTENT_DOWNLOAD), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SHOW_VEHICLES, STR_INTRO_ONLINE_CONTENT, STR_INTRO_TOOLTIP_ONLINE_CONTENT), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_EDIT_SCENARIO), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_SMALLMAP, STR_INTRO_SCENARIO_EDITOR, STR_INTRO_TOOLTIP_SCENARIO_EDITOR), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-				NWidget(WWT_PUSHIMGTEXTBTN, COLOUR_ORANGE, WID_SGI_HELP), SetToolbarMinimalSize(1), SetSpriteStringTip(SPR_IMG_QUERY, STR_INTRO_HELP, STR_INTRO_TOOLTIP_HELP), SetAlignment(SA_LEFT | SA_VERT_CENTER), SetFill(1, 0),
-			EndContainer(),
-
-			NWidget(NWID_VERTICAL),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, WID_SGI_EXIT), SetToolbarMinimalSize(1), SetStringTip(STR_INTRO_QUIT, STR_INTRO_TOOLTIP_QUIT),
+            NWidget(NWID_HORIZONTAL),
+				NWidget(WWT_MATRIX, COLOUR_GREY, WID_SGI_SERVER_LIST), SetFill(1,1), SetScrollbar(WID_SGI_SERVER_LIST_SCROLLBAR),
+				NWidget(NWID_VSCROLLBAR, COLOUR_GREY, WID_SGI_SERVER_LIST_SCROLLBAR),
 			EndContainer(),
 		EndContainer(),
 	EndContainer(),

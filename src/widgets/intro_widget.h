@@ -27,6 +27,13 @@ enum SelectGameIntroWidgets : WidgetID {
 	WID_SGI_HELP,                  ///< Help and manuals button.
 	WID_SGI_CONTENT_DOWNLOAD,      ///< Content Download button.
 	WID_SGI_EXIT,                  ///< Exit button.
+
+	WID_SGI_SERVER_LIST,
+	WID_SGI_SERVER_LIST_SCROLLBAR,
+	WID_SGI_DROPDOWN_COMMUNITY,
+	WID_SGI_DROPDOWN_GOAL_TYPE,
+	WID_SGI_DROPDOWN_DURATION,
+	WID_SGI_DROPDOWN_CLIMATE,
 };
 
 #endif /* WIDGETS_INTRO_WIDGET_H */

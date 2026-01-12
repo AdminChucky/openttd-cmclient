@@ -6454,3 +6454,26 @@ CM_STR_SHOW_HIDDEN_ENGINES_VEHICLE_AIRCRAFT                        :{BLACK}Show 
 
 CM_STR_SHOW_BLOCK_SIGNAL_TOOLTIP                             :Show advanced signal types
 CM_STR_HIDE_BLOCK_SIGNAL_TOOLTIP                             :Hide advanced signal types
+
+CM_STR_INTRO_COMMUNITY_CARD_TITLE                               :{STRING}: {RAW_STRING}
+CM_STR_INTRO_COMMUNITY_CARD_GOAL_CV                             :CV
+CM_STR_INTRO_COMMUNITY_CARD_GOAL_POP                            :POP
+CM_STR_INTRO_COMMUNITY_CARD_GOAL                                :Goal: {NUM} of {STRING} - {NUM}
+CM_STR_INTRO_COMMUNITY_CARD_YEAR                                :Duration: ({NUM}-{NUM}) - {NUM}
+CM_STR_INTRO_COMMUNITY_CARD_PROGRESS                            :{NUM} - {NUM}%
+CM_STR_INTRO_COMMUNITY_CARD_ANY_COMMUNITY                       :Any Community
+CM_STR_INTRO_COMMUNITY_CARD_ANY_GOAL                            :Any Goal
+CM_STR_INTRO_COMMUNITY_CARD_ANY_DURATION                        :Any Duration
+CM_STR_INTRO_COMMUNITY_CARD_ANY_CLIMATE                         :Any Climate
+CM_STR_INTRO_COMMUNITY_CARD_GOAL_TYPE_CV                        :Company Value
+CM_STR_INTRO_COMMUNITY_CARD_GOAL_TYPE_CB                        :City Builder
+CM_STR_INTRO_COMMUNITY_CARD_DURATION_SHORT                      :Short (<2 hour)
+CM_STR_INTRO_COMMUNITY_CARD_DURATION_MEDIUM                     :Medium (3-7 hours)
+CM_STR_INTRO_COMMUNITY_CARD_DURATION_LONG                       :Long (>8 hours)
+CM_STR_INTRO_COMMUNITY_CARD_NICE                                :N-ice
+CM_STR_INTRO_COMMUNITY_CARD_BTPRO                               :Bt-pro
+CM_STR_INTRO_COMMUNITY_CARD_CITYMANIA                           :Citymania
+CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_ARTIC                       :Artic
+CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_TEMPERATE                   :Temperate
+CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_TOYLAND                     :Toyland
+CM_STR_INTRO_COMMUNITY_CARD_CLIMATE_TROPIC                      :Tropical
