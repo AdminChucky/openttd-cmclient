@@ -10,6 +10,7 @@
 #include "stdafx.h"
 #include "gui.h"
 #include "station_base.h"
+#include "tile_type.h"
 #include "waypoint_base.h"
 #include "window_gui.h"
 #include "station_gui.h"
@@ -428,7 +429,8 @@ RoadBits FindRailsToConnect(TileIndex tile) {
 	RoadBits passing = ROAD_NONE;
 	DiagDirection ddir;
 	for (ddir = DIAGDIR_BEGIN; ddir < DIAGDIR_END; ddir++) {
-		TileIndex cur_tile = TileAddByDiagDir(tile, ddir);
+		TileIndex cur_tile = AddTileIndexDiffCWrap(tile, TileIndexDiffCByDiagDir(ddir));
+		if (cur_tile == INVALID_TILE) continue;
 		if (HasStationTileRail(cur_tile)) {
 			if (GetRailStationTrackBits(cur_tile) & DiagdirReachesTracks(ddir)) {
 				directed |= DiagDirToRoadBits(ddir);

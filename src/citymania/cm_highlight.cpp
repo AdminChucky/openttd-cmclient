@@ -647,7 +647,8 @@ void ObjectHighlight::UpdateTiles() {
             auto palette = (cost.Succeeded() ? CM_PALETTE_TINT_WHITE : CM_PALETTE_TINT_RED_DEEP);
 
             this->tiles.insert(std::make_pair(this->tile, ObjectTileHighlight::make_rail_depot(palette, dir)));
-            auto tile = this->tile + TileOffsByDiagDir(dir);
+            auto tile = AddTileIndexDiffCWrap(this->tile, TileIndexDiffCByDiagDir(dir));
+            if (tile == INVALID_TILE) break;
             if (IsTileType(tile, MP_RAILWAY) && IsCompatibleRail(GetRailType(tile), _cur_railtype)) {
                 this->PlaceExtraDepotRail(tile, _place_depot_extra_dir[dir], _place_depot_extra_track[dir]);
                 this->PlaceExtraDepotRail(tile, _place_depot_extra_dir[dir + 4], _place_depot_extra_track[dir + 4]);
