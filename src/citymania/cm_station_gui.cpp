@@ -256,7 +256,9 @@ static RoadBits FindRoadsToConnect(TileIndex tile, RoadType roadtype) {
     auto cur_rtt = GetRoadTramType(roadtype);
     // Prioritize roadbits that head in this direction
     for (ddir = DIAGDIR_BEGIN; ddir < DIAGDIR_END; ddir++) {
-        TileIndex cur_tile = TileAddByDiagDir(tile, ddir);
+        TileIndex cur_tile = AddTileIndexDiffCWrap(tile, TileIndexDiffCByDiagDir(ddir));
+        if (cur_tile == INVALID_TILE) continue;
+
         if (GetAnyRoadBits(cur_tile, cur_rtt, true) &
             DiagDirToRoadBits(ReverseDiagDir(ddir)))
         {
@@ -268,7 +270,8 @@ static RoadBits FindRoadsToConnect(TileIndex tile, RoadType roadtype) {
     }
     // Try to connect to any road passing by
     for (ddir = DIAGDIR_BEGIN; ddir < DIAGDIR_END; ddir++) {
-        TileIndex cur_tile = TileAddByDiagDir(tile,  ddir);
+        TileIndex cur_tile = AddTileIndexDiffCWrap(tile, TileIndexDiffCByDiagDir(ddir));
+        if (cur_tile == INVALID_TILE) continue;
         if (GetTileType(cur_tile) == MP_ROAD && HasTileRoadType(cur_tile, cur_rtt) &&
                 (GetRoadTileType(cur_tile) == RoadTileType::Normal)) {
             bits |= DiagDirToRoadBits(ddir);
