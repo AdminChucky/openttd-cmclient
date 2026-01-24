@@ -1261,7 +1261,6 @@ static constexpr std::initializer_list<NWidgetPart> _nested_build_road_depot_wid
 				NWidget(WWT_TEXTBTN, COLOUR_GREY, CM_WID_BROD_DEPOT_AUTO), SetMinimalSize(2 * 66 + WidgetDimensions::unscaled.hsep_normal, 12), SetFill(0, 0), SetStringTip(CM_STR_STATION_BUILD_ORIENTATION_AUTO, CM_STR_BUILD_DEPOT_ROAD_ORIENTATION_AUTO_TOOLTIP),
 			EndContainer(),
 		EndContainer(),
-		NWidget(WWT_TEXTBTN, COLOUR_GREY, CM_WID_BROD_DEPOT_AUTO), SetStringTip(CM_STR_STATION_BUILD_ORIENTATION_AUTO, CM_STR_BUILD_DEPOT_ROAD_ORIENTATION_AUTO_TOOLTIP),
 	EndContainer(),
 };
 
