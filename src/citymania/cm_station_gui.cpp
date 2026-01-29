@@ -687,7 +687,8 @@ static void UpdateStationAction(std::optional<TileArea> area, up<Command> cmdptr
             checked_joins.insert(it, st->index);
 
             cmd->station_to_join = st->index;
-            if (cmd->test().Succeeded()) valid_joins.push_back(st->index);
+            // Without distant join command will always fail
+            if (!_settings_game.station.distant_join_stations || cmd->test().Succeeded()) valid_joins.push_back(st->index);
         }
     }
 
