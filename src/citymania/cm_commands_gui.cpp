@@ -29,6 +29,7 @@
 namespace citymania {
 
 bool _novahost = true;
+bool _admin = false;
 IniFile *_inilogin = NULL;
 
 static const int HTTPBUFLEN = 1024;
@@ -46,6 +47,9 @@ static constexpr std::string_view NICE_LOGIN      = "nice_login";
 static constexpr std::string_view NICE_PW         = "nice_pw";
 static constexpr std::string_view BTPRO_LOGIN     = "btpro_login";
 static constexpr std::string_view BTPRO_PW        = "btpro_pw";
+static constexpr std::string_view NICE_ADMIN_PW   = "nice_admin_pw";
+static constexpr std::string_view BTPRO_ADMIN_PW  = "btpro_admin_pw";
+static constexpr std::string_view ADMIN           = "admin";
 static constexpr std::string_view COMMUNITY		  = "community";
 
 static constexpr std::string_view INI_LOGIN_KEYS[] = {
@@ -55,6 +59,9 @@ static constexpr std::string_view INI_LOGIN_KEYS[] = {
 	NICE_PW,
 	BTPRO_LOGIN,
 	BTPRO_PW,
+	NICE_ADMIN_PW,
+	BTPRO_ADMIN_PW,
+	ADMIN,
 };
 
 static constexpr std::string_view INI_SERVER_KEYS[] = {
@@ -132,8 +139,11 @@ enum CommandsToolbarCargoOption {
 enum LoginWindowWidgets {
     LWW_USER_NAME,
     LWW_USER_PW,
+	LWW_ADMIN_PW,
     LWW_USER_LOGIN,
     LWW_USER_LOGOUT,
+    LWW_ADMIN_LOGIN,
+    LWW_ADMIN_LOGOUT,
     LWW_TXT1,
     LWW_TXT2,
     LWW_TXT3,
@@ -141,11 +151,13 @@ enum LoginWindowWidgets {
 	LWW_URL,
 	LWW_USERNAME,
 	LWW_PASSWORD,
+    LWW_PASSWORD_ADMIN,
 };
 
 enum LoginWindowQueryWidgets {
     LQW_USER_NAME,
     LQW_USER_PW,
+	LQW_ADMIN_PW,
 };
 
 enum CommunityName {
@@ -161,9 +173,12 @@ enum IniLoginKeys {
 	NICEPW,
 	BTPROUSER,
 	BTPROPW,
+    NICEADMINPW,
+    BTPROADMINPW,
+    IS_ADMIN,
 };
 
-char _inilogindata[6][MAX_COMMUNITY_STRING_LEN];
+char _inilogindata[10][MAX_COMMUNITY_STRING_LEN];
 
 void AccountLogin(CommunityName community);
 void IniReloadLogin();
@@ -201,7 +216,12 @@ void IniLoginInitiate(){
 	if(_inilogin != NULL) return; //it was already set
 	_inilogin = new IniFile({CFG_LOGIN_KEY});
 	_inilogin->LoadFromDisk(CFG_LOGIN_FILE, BASE_DIR);
-	IniReloadLogin();
+	try {
+		IniReloadLogin();
+	}
+    catch (...){
+		return;
+	}
 }
 
 std::string GetLoginItem(std::string_view itemname){
@@ -706,7 +726,12 @@ public:
         if ((_community == 1) || (_community == 2) || (_community == 3)) this->InitNested(window_number);
 
 		//not used by citymania
-		if (_community == 3) this->DisableWidget(LWW_USER_LOGOUT);
+        if (_community == 3) {
+            this->DisableWidget(LWW_USER_LOGOUT);
+            this->DisableWidget(LWW_ADMIN_LOGIN);
+            this->DisableWidget(LWW_ADMIN_LOGOUT);
+            this->DisableWidget(LWW_ADMIN_PW);
+        }
 		
 	}
 
@@ -715,6 +740,7 @@ public:
     switch (widget) {
 			case LWW_USERNAME: return GetString(CM_STR_LOGIN_WINDOW_USERNAME); break;
 			case LWW_PASSWORD: return GetString(CM_STR_LOGIN_WINDOW_PASSWORD); break;
+			case LWW_PASSWORD_ADMIN: return GetString(CM_STR_LOGIN_WINDOW_PASSWORD_ADMIN); break;
 			case LWW_TXT2: return GetString(CM_STR_LOGIN_WINDOW_TXT2); break;
 			case LWW_TXT3: return GetString(CM_STR_LOGIN_WINDOW_TXT3); break;
 			case LWW_TXT4: return GetString(CM_STR_LOGIN_WINDOW_TXT4); break;
@@ -723,7 +749,6 @@ public:
 					case 1: return GetString(CM_STR_LOGIN_WINDOW_USERNAME_DISPLAY, std::string_view(_inilogindata[NICEUSER])); break;
 					case 2: return GetString(CM_STR_LOGIN_WINDOW_USERNAME_DISPLAY, std::string_view(_inilogindata[BTPROUSER])); break;
 					case 3: return GetString(CM_STR_LOGIN_WINDOW_USERNAME_DISPLAY, std::string_view(_inilogindata[CITYMANIAUSER])); break;
-					default: return this->Window::GetWidgetString(widget, stringid);
 				}
             }
             case LWW_USER_PW: {
@@ -733,6 +758,15 @@ public:
 					case 3: return GetString(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, (GetLoginItem(CITYMANIA_PW).empty() ? CM_STR_LOGIN_WINDOW_NOT_SET : CM_STR_LOGIN_WINDOW_SET)); break;
 					default: return this->Window::GetWidgetString(widget, stringid);
 				}
+			}
+			case LWW_ADMIN_PW: {
+                switch (_community) {
+                    case 1: return GetString(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, (GetLoginItem(NICE_ADMIN_PW).empty() ? CM_STR_LOGIN_WINDOW_NOT_SET : CM_STR_LOGIN_WINDOW_SET)); break;
+					case 2: return GetString(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, (GetLoginItem(BTPRO_ADMIN_PW).empty() ? CM_STR_LOGIN_WINDOW_NOT_SET : CM_STR_LOGIN_WINDOW_SET)); break;
+                    case 3: return GetString(CM_STR_CONFIG_SETTING_MODIFIER_NONE); break;
+					default: return this->Window::GetWidgetString(widget, stringid);
+				}
+                break;
 			}
 			case LWW_TXT1: {
 				switch (_community) {
@@ -758,17 +792,24 @@ public:
 	{
 		switch (widget) {
             
-			case LWW_USER_NAME:
+			case LWW_USER_NAME: {
 				this->query_widget = (LoginWindowQueryWidgets)widget;
 				ShowQueryString("", CM_STR_LOGIN_WINDOW_CHANGE_USERNAME, MAX_COMMUNITY_STRING_LEN, this, CS_ALPHANUMERAL, {});
+				}
 				break;
 		
-			case LWW_USER_PW:
+			case LWW_USER_PW: {
 				this->query_widget = (LoginWindowQueryWidgets)widget;
 				ShowQueryString("", CM_STR_LOGIN_WINDOW_CHANGE_PASSWORD, MAX_COMMUNITY_STRING_LEN, this, CS_ALPHANUMERAL, {});
+				}
+				break;
+			case LWW_ADMIN_PW: {
+				this->query_widget = (LoginWindowQueryWidgets)widget;
+				ShowQueryString("", CM_STR_LOGIN_WINDOW_CHANGE_ADMIN_PASSWORD, MAX_COMMUNITY_STRING_LEN, this, CS_ALPHANUMERAL, {});
+				}
 				break;
 			case LWW_USER_LOGIN: {
-                    switch (_community) {
+				switch (_community) {
                     case 1: if(_networking) AccountLogin(NICE); break;
 					case 2: if(_networking) AccountLogin(BTPRO); break;
 					case 3: if(_networking) AccountLogin(CITYMANIA); break;
@@ -778,6 +819,21 @@ public:
             case LWW_USER_LOGOUT:
                 NetworkClientSendChatToServer("!logout");
                 break;
+			case LWW_ADMIN_LOGIN: {
+				switch (_community) {
+					case 1: {
+						if(_networking) NetworkClientSendChatToServer(fmt::format("!alogin {} {}", _inilogindata[NICEUSER], base64_decode(_inilogindata[NICEADMINPW])));
+						break;
+					}
+					case 2: {
+						if(_networking) NetworkClientSendChatToServer(fmt::format("!alogin {} {}", _inilogindata[BTPROUSER], base64_decode(_inilogindata[BTPROADMINPW])));
+						break;
+					}
+				}
+				break;
+			}
+            case LWW_ADMIN_LOGOUT:
+				NetworkClientSendChatToServer("!alogout"); break;
 		}
 	}
 
@@ -812,8 +868,16 @@ public:
 					}
                     case 2: SetLoginItem(BTPRO_PW, str.value()); break;
                     case 3: SetLoginItem(CITYMANIA_PW, str.value()); break;
-					default: return;
 				}
+				break;
+			}
+			case LQW_ADMIN_PW: {
+				switch (_community) {
+					case 1: SetLoginItem(NICE_ADMIN_PW, btpro_encode(str.value().c_str())); break;	
+                    case 2: SetLoginItem(BTPRO_ADMIN_PW, btpro_encode(str.value().c_str())); break;
+                    //case 3: SetLoginItem(NOVAPOLIS_PW, str); break;
+				}
+                break;
 			}
 		}
 		this->SetDirty();
@@ -869,21 +933,63 @@ static const NWidgetPart _nested_login_window_widgets[] = {
 	EndContainer(),
 };
 
+static const NWidgetPart _nested_admin_window_widgets[] = {
+	NWidget(NWID_HORIZONTAL),
+		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
+		NWidget(WWT_CAPTION, COLOUR_BROWN), SetStringTip(CM_STR_LOGIN_WINDOW_CAPTION,0),
+		NWidget(WWT_STICKYBOX, COLOUR_BROWN),
+	EndContainer(),
+	NWidget(WWT_PANEL, COLOUR_BROWN), SetResize(1, 0),
+		NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize), SetPadding(10),
+			//welcome
+			NWidget(NWID_SPACER), SetMinimalSize(0, 5),
+			NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize),
+				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT1), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
+				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT2), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
+			EndContainer(),
+			//username and pw
+			NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 10),
+				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_USERNAME),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_NAME), SetMinimalSize(100, 25), SetFill(1, 0),
+				SetStringTip(CM_STR_LOGIN_WINDOW_USERNAME_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_USERNAME_HELPTEXT),
+                NWidget(NWID_SPACER), SetMinimalSize(0, 10),
+				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_PASSWORD),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_PW), SetMinimalSize(100, 25), SetFill(1, 0),
+				SetStringTip(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_PASSWORD_HELPTEXT),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 10),
+				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_PASSWORD_ADMIN),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_ADMIN_PW), SetMinimalSize(100, 25), SetFill(1, 0),
+				SetStringTip(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_PASSWORD_HELPTEXT),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 15),
+			EndContainer(),
+			//login and logout
+            NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_LOGIN), SetMinimalSize(100, 25), SetAlignment(SA_CENTER), SetFill(1, 0),
+				SetStringTip(CM_STR_TOOLBAR_COMMANDS_LOGIN_CAPTION, CM_STR_TOOLBAR_COMMANDS_LOGIN_TOOLTIP),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 15),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_LOGOUT), SetMinimalSize(100, 25), SetAlignment(SA_CENTER), SetFill(1, 0),
+				SetStringTip(CM_STR_TOOLBAR_COMMANDS_LOGOUT_CAPTION, CM_STR_TOOLBAR_COMMANDS_LOGOUT_TOOLTIP),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 15),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_ADMIN_LOGIN), SetMinimalSize(100, 25), SetAlignment(SA_CENTER), SetFill(1, 0),
+				SetStringTip(CM_STR_LOGIN_WINDOW_LOGIN_CAPTION_ADMIN, CM_STR_LOGIN_WINDOW_LOGIN_TOOLTIP_ADMIN),
+				NWidget(NWID_SPACER), SetMinimalSize(0, 15),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_ADMIN_LOGOUT), SetMinimalSize(100, 25), SetAlignment(SA_CENTER), SetFill(1, 0),
+				SetStringTip(CM_STR_LOGIN_WINDOW_LOGOUT_CAPTION_ADMIN, CM_STR_LOGIN_WINDOW_LOGOUT_TOOLTIP_ADMIN),
+            EndContainer(),
+			NWidget(NWID_SPACER), SetMinimalSize(0,10), //Placeholder
+			NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize),
+				//NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT3), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
+				//NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT4), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
+				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_URL), SetMinimalSize(100, 10), SetAlignment(SA_LEFT), SetFill(1, 0),
+			EndContainer(),
+		EndContainer(),
+	EndContainer(),
+};
 
-static WindowDesc _login_window_desc(
-	WDP_CENTER, "cm_commands", 0, 0,
-	CM_WC_LOGIN_WINDOW, WC_NONE,
-	WindowDefaultFlag::Construction,
-	_nested_login_window_widgets
-);
-
-void ShowLoginWindow()
-{
-	IniLoginInitiate();
-    CheckCommunity();
-	CloseWindowByClass(CM_WC_LOGIN_WINDOW);
-	AllocateWindowDescFront<LoginWindow>(_login_window_desc, 0);
-}
 
 /* Identify the current community */
 void CheckCommunity() {
@@ -906,6 +1012,36 @@ void CheckCommunity() {
     } else {  // Unknown Server
         SetServerItem(COMMUNITY, "0");
     }
+};
+
+void CheckAdmin() {
+    if (GetLoginItem(ADMIN) == "1")
+        _admin = true;
+};
+
+static WindowDesc _login_window_desc(
+	WDP_CENTER, "cm_commands", 0, 0,
+	CM_WC_LOGIN_WINDOW, WC_NONE,
+	WindowDefaultFlag::Construction,
+	_nested_login_window_widgets
+);
+
+static WindowDesc _admin_window_desc(
+	WDP_CENTER, "cm_commands", 0, 0,
+	CM_WC_LOGIN_WINDOW, WC_NONE,
+	WindowDefaultFlag::Construction,
+	_nested_admin_window_widgets
+);
+
+void ShowLoginWindow() {
+    IniLoginInitiate();
+    CheckCommunity();
+    CheckAdmin();
+    CloseWindowByClass(CM_WC_LOGIN_WINDOW);
+    if (!_admin)
+        AllocateWindowDescFront<LoginWindow>(_login_window_desc, 0);
+    else
+        AllocateWindowDescFront<LoginWindow>(_admin_window_desc, 0);
 };
 
 } // namespace citymania
