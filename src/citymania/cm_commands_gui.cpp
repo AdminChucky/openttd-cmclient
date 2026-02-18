@@ -161,35 +161,35 @@ enum LoginWindowQueryWidgets {
 };
 
 enum AdminCompanyButtonsWidgets {
-	WID_AC_CAPTION,
-	WID_C_COMPANY_EMPTY,
-	WID_C_COMPANY_LOCK,
-	WID_C_COMPANY_UNLOCK,
-	WID_C_COMPANY_NEWSTICKET,
-	WID_C_COMPANY_NEWSTICKET_COMP,
-	WID_C_COMPANY_RESET,
-	WID_C_COMPANY_RESET_SPEC,
-	WID_C_COMPANY_RESET_KICK,
-	WID_C_COMPANY_KNOWN,
-	WID_C_COMPANY_RESET_KNOWN,
-	WID_C_COMPANY_MOVE_PLAYER,
-	WID_C_RESET_COMPANY_TIMER_120,
-	WID_C_RESET_COMPANY_TIMER,
-	WID_C_RESET_COMPANY_TIMER_CANCEL,
-	WID_C_COMPANY_SUSPEND,
-	WID_C_COMPANY_UNSUSPEND,
-	WID_C_COMPANY_AWARNING,
-	WID_C_COMPANY_JOIN2,
-	WID_C_COMPANY_LEAVE,
-	WID_C_COMPANY_CANCEL,
-	WID_C_COMPANY_CAPTION,
+	ACB_CAPTION,
+	ACB_COMPANY_EMPTY,
+	ACB_COMPANY_LOCK,
+	ACB_COMPANY_UNLOCK,
+	ACB_COMPANY_NEWSTICKET,
+	ACB_COMPANY_NEWSTICKET_COMP,
+	ACB_COMPANY_RESET,
+	ACB_COMPANY_RESET_SPEC,
+	ACB_COMPANY_RESET_KICK,
+	ACB_COMPANY_KNOWN,
+	ACB_COMPANY_RESET_KNOWN,
+	ACB_COMPANY_MOVE_PLAYER,
+	ACB_RESET_COMPANY_TIMER_120,
+	ACB_RESET_COMPANY_TIMER,
+	ACB_RESET_COMPANY_TIMER_CANCEL,
+	ACB_COMPANY_SUSPEND,
+	ACB_COMPANY_UNSUSPEND,
+	ACB_COMPANY_AWARNING,
+	ACB_COMPANY_JOIN2,
+	ACB_COMPANY_LEAVE,
+	ACB_COMPANY_CANCEL,
+	ACB_COMPANY_CAPTION,
 };
 
 enum AdminCompanyButtonsQueryWidgets {
-	WID_CQ_RESET_COMPANY_TIMER,
-	WID_CQ_COMPANY_NEWSTICKET,
-	WID_CQ_COMPANY_NEWSTICKET_COMP,
-	WID_CQ_COMPANY_MOVE_PLAYER,
+	ACBQ_RESET_COMPANY_TIMER,
+	ACBQ_COMPANY_NEWSTICKET,
+	ACBQ_COMPANY_NEWSTICKET_COMP,
+	ACBQ_COMPANY_MOVE_PLAYER,
 };
 
 enum CommunityName {
@@ -214,13 +214,13 @@ char _inilogindata[10][MAX_COMMUNITY_STRING_LEN];
 
 void AccountLogin(CommunityName community);
 void IniReloadLogin();
-//void ShowAdminCompanyButtons(int companyid = CompanyID::Invalid().base());
 void ShowAdminCompanyButtons(int left, int top, int width, int company2);
 
 bool novahost() {
 	return _novahost;
 }
 
+/* for company_gui */
 bool GetAdmin() { return _admin; }
 
 // void strtomd5(char * buf, char * bufend, int length){
@@ -932,9 +932,9 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 
         /* disable not supported buttons for n-ice */
         if (GetServerItem(COMMUNITY) == "1") {
-            //this->DisableWidget(WID_C_COMPANY_SUSPEND);
-            //this->DisableWidget(WID_C_COMPANY_UNSUSPEND);
-            //this->DisableWidget(WID_C_COMPANY_AWARNING);
+            this->DisableWidget(ACB_COMPANY_SUSPEND);
+            this->DisableWidget(ACB_COMPANY_UNSUSPEND);
+            this->DisableWidget(ACB_COMPANY_AWARNING);
         }
     }
 
@@ -961,81 +961,81 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 		if(!_networking) return;
 		int _company = this->window_number;
 		switch (widget) {
-			case WID_C_COMPANY_EMPTY:
+			case ACB_COMPANY_EMPTY:
 				NetworkClientSendChatToServer(fmt::format("!emptycompany {}",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_RESET_KICK:
-				ShowQuery(GetEncodedString(STR_XI_RESET_COMP), GetEncodedString(STR_XI_RESET_KICK_SURE), this, CWCompanyResetKickCallback);
+			case ACB_COMPANY_RESET_KICK:
+				ShowQuery(GetEncodedString(CM_STR_ACB_RESET_COMP), GetEncodedString(CM_STR_ACB_RESET_KICK_SURE), this, CWCompanyResetKickCallback);
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_RESET_SPEC:
-                ShowQuery(GetEncodedString(STR_XI_RESET_COMP), GetEncodedString(STR_XI_RESET_SPEC_SURE), this, CWCompanyResetSpecCallback);
+			case ACB_COMPANY_RESET_SPEC:
+                ShowQuery(GetEncodedString(CM_STR_ACB_RESET_COMP), GetEncodedString(CM_STR_ACB_RESET_SPEC_SURE), this, CWCompanyResetSpecCallback);
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_RESET:
-				ShowQuery(GetEncodedString(STR_XI_RESET_COMP), GetEncodedString(STR_XI_RESET_COMP_SURE), this, CWCompanyResetCallback);
+			case ACB_COMPANY_RESET:
+				ShowQuery(GetEncodedString(CM_STR_ACB_RESET_COMP), GetEncodedString(CM_STR_ACB_RESET_COMP_SURE), this, CWCompanyResetCallback);
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_RESET_COMPANY_TIMER:
-				this->query_widget = WID_CQ_RESET_COMPANY_TIMER;
-				ShowQueryString({}, STR_XI_RESET_TIMER_VALUE, 25, this, CS_NUMERAL, {});
+			case ACB_RESET_COMPANY_TIMER:
+				this->query_widget = ACBQ_RESET_COMPANY_TIMER;
+				ShowQueryString({}, CM_STR_ACB_RESET_TIMER_VALUE, 25, this, CS_NUMERAL, {});
 				break;
-			case WID_C_RESET_COMPANY_TIMER_120:
+			case ACB_RESET_COMPANY_TIMER_120:
 				NetworkClientSendChatToServer(fmt::format("!resetcompanytimer {} 120",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_RESET_COMPANY_TIMER_CANCEL:
+			case ACB_RESET_COMPANY_TIMER_CANCEL:
 				NetworkClientSendChatToServer(fmt::format("!cancelresetcompany {}",_company));
 				break;
-			case WID_C_COMPANY_LOCK:
+			case ACB_COMPANY_LOCK:
 				NetworkClientSendChatToServer(fmt::format("!lockcompany {}",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_UNLOCK:
+			case ACB_COMPANY_UNLOCK:
 				NetworkClientSendChatToServer(fmt::format("!unlockcompany {}",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_KNOWN:
+			case ACB_COMPANY_KNOWN:
 				NetworkClientSendChatToServer(fmt::format("!known {}",_company));
 				MarkWholeScreenDirty();
 				break;			
-			case WID_C_COMPANY_RESET_KNOWN:
+			case ACB_COMPANY_RESET_KNOWN:
 				NetworkClientSendChatToServer(fmt::format("!resetknown {}",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_MOVE_PLAYER:
-				this->query_widget = WID_CQ_COMPANY_MOVE_PLAYER;
+			case ACB_COMPANY_MOVE_PLAYER:
+				this->query_widget = ACBQ_COMPANY_MOVE_PLAYER;
 				ShowQueryString({}, STR_NETWORK_SERVER_LIST_PLAYER_NAME, 250, this, CS_ALPHANUMERAL, {});
 				break;
-			case WID_C_COMPANY_NEWSTICKET:
-				this->query_widget = WID_CQ_COMPANY_NEWSTICKET;
-				ShowQueryString({}, STR_XI_PLAYER_NEWSTICKET, 250, this, CS_ALPHANUMERAL, {});
+			case ACB_COMPANY_NEWSTICKET:
+				this->query_widget = ACBQ_COMPANY_NEWSTICKET;
+				ShowQueryString({}, CM_STR_ACB_PLAYER_NEWSTICKET, 250, this, CS_ALPHANUMERAL, {});
 				break;
-			case WID_C_COMPANY_NEWSTICKET_COMP:
-				this->query_widget = WID_CQ_COMPANY_NEWSTICKET_COMP;
-				ShowQueryString({}, STR_XI_PLAYER_NEWSTICKET, 250, this, CS_ALPHANUMERAL, {});
+			case ACB_COMPANY_NEWSTICKET_COMP:
+				this->query_widget = ACBQ_COMPANY_NEWSTICKET_COMP;
+				ShowQueryString({}, CM_STR_ACB_PLAYER_NEWSTICKET, 250, this, CS_ALPHANUMERAL, {});
 				break;
-			case WID_C_COMPANY_SUSPEND:
+			case ACB_COMPANY_SUSPEND:
 				NetworkClientSendChatToServer(fmt::format("!suspend {}",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_UNSUSPEND:
+			case ACB_COMPANY_UNSUSPEND:
 				NetworkClientSendChatToServer(fmt::format("!unsuspend {}",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_AWARNING:
+			case ACB_COMPANY_AWARNING:
 				NetworkClientSendChatToServer(fmt::format("!awarning {}",_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_JOIN2:
+			case ACB_COMPANY_JOIN2:
 				NetworkClientSendChatToServer(fmt::format("!move #{} {}",_network_own_client_id ,_company));
 				MarkWholeScreenDirty();
 				break;
-			case WID_C_COMPANY_LEAVE:
+			case ACB_COMPANY_LEAVE:
 				NetworkClientRequestMove(COMPANY_SPECTATOR);
 				break;
-			case WID_C_COMPANY_CANCEL:
+			case ACB_COMPANY_CANCEL:
 				this->Close();
 				break;
 		}
@@ -1044,8 +1044,8 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 	std::string GetWidgetString(WidgetID widget, StringID stringid) const override
 	{
 		switch (widget) {
-            case WID_C_COMPANY_CAPTION:
-				return GetString(STR_XI_COMPANY_ADMIN_CAPTION, this->window_number);
+            case ACB_COMPANY_CAPTION:
+				return GetString(CM_STR_ACB_COMPANY_ADMIN_CAPTION, this->window_number);
 			default:
 				return this->Window::GetWidgetString(widget, stringid);
 		}
@@ -1058,23 +1058,23 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 		switch (this->query_widget) {
 			default: NOT_REACHED();
 
-			case WID_CQ_RESET_COMPANY_TIMER:
+			case ACBQ_RESET_COMPANY_TIMER:
 				NetworkClientSendChatToServer(fmt::format("!resetcompanytimer {} {}", _company, str.value()));
 				MarkWholeScreenDirty();
 				break;
-			case WID_CQ_COMPANY_NEWSTICKET: {
+			case ACBQ_COMPANY_NEWSTICKET: {
                 std::string buffer = GetString(STR_COMPANY_NAME); 
 				NetworkClientSendChatToServer(fmt::format("!news {}: {}", buffer, str.value()));
 				MarkWholeScreenDirty();
 				break;
 			}
-			case WID_CQ_COMPANY_NEWSTICKET_COMP: {
+			case ACBQ_COMPANY_NEWSTICKET_COMP: {
 				std::string buffer = GetString(STR_COMPANY_NAME); 
 				NetworkClientSendChatToServer(fmt::format("!news {} {}", _company, str.value()));
 				MarkWholeScreenDirty();
 				break;
 			}
-			case WID_CQ_COMPANY_MOVE_PLAYER: {
+			case ACBQ_COMPANY_MOVE_PLAYER: {
 				NetworkClientSendChatToServer(fmt::format("!move #{} {}", str.value(), _company));
 				MarkWholeScreenDirty();
 				break;
@@ -1085,6 +1085,7 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 
 };
 
+/* user login */
 static const NWidgetPart _nested_login_window_widgets[] = {
 	NWidget(NWID_HORIZONTAL),
 		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
@@ -1131,6 +1132,7 @@ static const NWidgetPart _nested_login_window_widgets[] = {
 	EndContainer(),
 };
 
+/* admin login */
 static const NWidgetPart _nested_admin_window_widgets[] = {
 	NWidget(NWID_HORIZONTAL),
 		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
@@ -1188,37 +1190,38 @@ static const NWidgetPart _nested_admin_window_widgets[] = {
 	EndContainer(),
 };
 
+/* admin company buttons */
 static const NWidgetPart _nested_admin_company_window_widgets[] = {
 	NWidget(NWID_HORIZONTAL),
 		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
-		NWidget(WWT_CAPTION, COLOUR_RED, WID_C_COMPANY_CAPTION), SetStringTip(STR_XI_COMPANY_ADMIN_CAPTION, 0),
+		NWidget(WWT_CAPTION, COLOUR_RED, ACB_COMPANY_CAPTION), SetStringTip(CM_STR_ACB_COMPANY_ADMIN_CAPTION, 0),
 		NWidget(WWT_STICKYBOX, COLOUR_GREY),
 	EndContainer(),
 	NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0),
 		NWidget(NWID_HORIZONTAL),
 			NWidget(NWID_SPACER), SetMinimalSize(5, 0), SetFill(1, 0),
 			NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize), SetPIP(5, 3, 5),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_LOCK), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_LOCK, STR_XI_LOCK_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_UNLOCK), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_UNLOCK, STR_XI_UNLOCK_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_KNOWN), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_KNOWN, STR_XI_KNOWN_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_RESET_KNOWN), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_RESET_KNOWN, STR_XI_RESET_KNOWN_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_MOVE_PLAYER), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_MOVE_PLAYER_TO, STR_XI_MOVE_PLAYER_TO_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_NEWSTICKET_COMP), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_COMPANY_NEWSTICKET_BUTTON_COMP, STR_XI_COMPANY_NEWSTICKET_BUTTON_COMP_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_SUSPEND), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_SUSPEND, STR_XI_SUSPEND_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_UNSUSPEND), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_UNSUSPEND, STR_XI_UNSUSPEND_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_JOIN2),SetMinimalSize(10, 13), SetFill(1, 0),SetStringTip(STR_XI_COMPANY_JOIN2, STR_XI_COMPANY_JOIN2_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_LOCK), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_LOCK, CM_STR_ACB_LOCK_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_UNLOCK), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_UNLOCK, CM_STR_ACB_UNLOCK_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_KNOWN), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_KNOWN, CM_STR_ACB_KNOWN_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_RESET_KNOWN), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_RESET_KNOWN, CM_STR_ACB_RESET_KNOWN_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_MOVE_PLAYER), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_MOVE_PLAYER_TO, CM_STR_ACB_MOVE_PLAYER_TO_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_NEWSTICKET_COMP), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_COMPANY_NEWSTICKET_BUTTON_COMP, CM_STR_ACB_COMPANY_NEWSTICKET_BUTTON_COMP_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_SUSPEND), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_SUSPEND, CM_STR_ACB_SUSPEND_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_UNSUSPEND), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_UNSUSPEND, CM_STR_ACB_UNSUSPEND_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_JOIN2),SetMinimalSize(10, 13), SetFill(1, 0),SetStringTip(CM_STR_ACB_COMPANY_JOIN2, CM_STR_ACB_COMPANY_JOIN2_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_SPACER), SetMinimalSize(5, 0), SetFill(1, 0),
 			NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize), SetPIP(5, 3, 5),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_EMPTY), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_EMPTY, STR_XI_EMPTY_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_RESET), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_RESET, STR_XI_RESET_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_RESET_SPEC), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_RESET_SPEC, STR_XI_RESET_SPEC_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_RESET_KICK), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_RESET_KICK, STR_XI_RESET_KICK_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_RESET_COMPANY_TIMER_120), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_RESET_TIMER_120, STR_XI_RESET_TIMER_120_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_RESET_COMPANY_TIMER), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_RESET_TIMER, STR_XI_RESET_TIMER_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_RESET_COMPANY_TIMER_CANCEL), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_RESET_TIMER_CANCEL, STR_XI_RESET_TIMER_CANCEL_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_AWARNING), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(STR_XI_AWARNING, STR_XI_AWARNING_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_C_COMPANY_LEAVE),SetMinimalSize(10, 13), SetFill(1, 0),SetStringTip(STR_NETWORK_COMPANY_LIST_SPECTATE, STR_NETWORK_COMPANY_LIST_SPECTATE),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_EMPTY), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_EMPTY, CM_STR_ACB_EMPTY_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_RESET), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_RESET, CM_STR_ACB_RESET_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_RESET_SPEC), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_RESET_SPEC, CM_STR_ACB_RESET_SPEC_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_RESET_KICK), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_RESET_KICK, CM_STR_ACB_RESET_KICK_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_RESET_COMPANY_TIMER_120), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_RESET_TIMER_120, CM_STR_ACB_RESET_TIMER_120_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_RESET_COMPANY_TIMER), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_RESET_TIMER, CM_STR_ACB_RESET_TIMER_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_RESET_COMPANY_TIMER_CANCEL), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_RESET_TIMER_CANCEL, CM_STR_ACB_RESET_TIMER_CANCEL_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_AWARNING), SetMinimalSize(10, 13), SetFill(1, 0), SetStringTip(CM_STR_ACB_AWARNING, CM_STR_ACB_AWARNING_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, ACB_COMPANY_LEAVE),SetMinimalSize(10, 13), SetFill(1, 0),SetStringTip(STR_NETWORK_COMPANY_LIST_SPECTATE, CM_STR_NETWORK_COMPANY_LIST_SPECTATE),
 			EndContainer(),
 			NWidget(NWID_SPACER), SetMinimalSize(5, 0), SetFill(1, 0),
 		EndContainer(),
@@ -1255,6 +1258,7 @@ void CheckAdmin() {
         _admin = true;
 };
 
+/* user login */
 static WindowDesc _login_window_desc(
 	WDP_CENTER, "cm_commands", 0, 0,
 	CM_WC_LOGIN_WINDOW, WC_NONE,
@@ -1262,6 +1266,7 @@ static WindowDesc _login_window_desc(
 	_nested_login_window_widgets
 );
 
+/* admin login */ 
 static WindowDesc _admin_window_desc(
 	WDP_CENTER, "cm_commands", 0, 0,
 	CM_WC_LOGIN_WINDOW, WC_NONE,
@@ -1269,7 +1274,7 @@ static WindowDesc _admin_window_desc(
 	_nested_admin_window_widgets
 );
 
-
+/* admin company buttons */ 
 static WindowDesc _admin_company_buttons_desc(
 	WDP_AUTO, "cm_commands", 0, 0,
     CM_WC_ADMIN_COMPANY_BUTTONS, WC_NONE,
@@ -1277,7 +1282,7 @@ static WindowDesc _admin_company_buttons_desc(
     _nested_admin_company_window_widgets
 );
 
-
+/* user/admin login window*/
 void ShowLoginWindow() {
     IniLoginInitiate();
     CheckCommunity();
@@ -1289,6 +1294,7 @@ void ShowLoginWindow() {
         AllocateWindowDescFront<LoginWindow>(_admin_window_desc, 0);
 };
 
+/* admin company buttons */
 void ShowAdminCompanyButtons(int left, int top, int width, int company2) {
     IniLoginInitiate();
     CheckCommunity();
