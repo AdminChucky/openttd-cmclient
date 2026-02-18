@@ -56,6 +56,7 @@
 
 #include "citymania/cm_hotkeys.hpp"
 #include "citymania/cm_main.hpp"
+#include "citymania/cm_commands_gui.hpp"
 
 #include "safeguards.h"
 
@@ -1878,6 +1879,10 @@ static constexpr std::initializer_list<NWidgetPart> _nested_company_widgets = {
 							NWidget(WWT_TEXTBTN, COLOUR_GREY, WID_C_RELOCATE_HQ), SetStringTip(STR_COMPANY_VIEW_RELOCATE_HQ, STR_COMPANY_VIEW_RELOCATE_HQ_TOOLTIP),
 							NWidget(NWID_SPACER),
 						EndContainer(),
+						/* Admin company buttons */
+						NWidget(NWID_SELECTION, INVALID_COLOUR, CM_WID_C_SELECT_ADMINBUTTONS),
+							NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CM_WID_C_ADMINBUTTONS), SetStringTip(STR_XI_COMPANY_ADMIN_BUTTON, STR_XI_COMPANY_ADMIN_BUTTON),
+						EndContainer(),
 					EndContainer(),
 				EndContainer(),
 
@@ -1976,6 +1981,10 @@ struct CompanyWindow : Window
 			/* Button bar selection. */
 			reinit |= this->GetWidget<NWidgetStacked>(WID_C_SELECT_BUTTONS)->SetDisplayedPlane(local ? 0 : SZSP_NONE);
 
+			/* Admin company buttons */
+			citymania::CheckAdmin();
+			reinit |= this->GetWidget<NWidgetStacked>(CM_WID_C_SELECT_ADMINBUTTONS)->SetDisplayedPlane(citymania::GetAdmin() ? 0 : SZSP_NONE);
+
 			/* Build HQ button handling. */
 			reinit |= this->GetWidget<NWidgetStacked>(WID_C_SELECT_VIEW_BUILD_HQ)->SetDisplayedPlane((local && c->location_of_HQ == INVALID_TILE) ? CWP_VB_BUILD : CWP_VB_VIEW);
 
@@ -2066,6 +2075,10 @@ struct CompanyWindow : Window
 				size.width = std::max(size.width, GetStringBoundingBox(STR_COMPANY_VIEW_JOIN).width);
 				size.width += padding.width;
 				break;
+			case CM_WID_C_ADMINBUTTONS:
+				size.width = std::max(size.width, GetStringBoundingBox(STR_XI_COMPANY_ADMIN_BUTTON).width);
+				break;
+
 			// case CW_WIDGET_COMPANY_RESUME:
 			// case CW_WIDGET_COMPANY_SUSPEND:
 			// case CW_WIDGET_COMPANY_RESET:
@@ -2294,6 +2307,14 @@ struct CompanyWindow : Window
 				citymania::NetworkClientSendChatToServer(fmt::format("!lockp {}", company2 + 1));
 				MarkWholeScreenDirty();
 				break;
+			}
+			/* Admin company buttons */
+			case CM_WID_C_ADMINBUTTONS:
+			{
+                //CompanyID company2 = (CompanyID)this->window_number;
+                CompanyID company2 = this->window_number;
+                citymania::ShowAdminCompanyButtons(this->left, this->top, this->width, company2+1);
+                break;
 			}
 		}
 	}

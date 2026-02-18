@@ -55,6 +55,9 @@ enum CompanyWidgets : WidgetID {
 	WID_C_MOD_COMPANY_JOIN,
 	WID_C_MOD_COMPANY_RESET,
 	WID_C_MOD_COMPANY_TOGGLE_LOCK,
+
+	CM_WID_C_SELECT_ADMINBUTTONS,
+    CM_WID_C_ADMINBUTTONS,
 };
 
 /** Widgets of the #CompanyFinancesWindow class. */
