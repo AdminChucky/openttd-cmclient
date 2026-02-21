@@ -33,6 +33,8 @@ const DiagDirection STATIONDIR_Y = (DiagDirection)((uint)DIAGDIR_END + 1);
 const DiagDirection STATIONDIR_AUTO = (DiagDirection)((uint)DIAGDIR_END + 2);
 const DiagDirection STATIONDIR_AUTO_XY = (DiagDirection)((uint)DIAGDIR_END + 3);
 
+void ShowCatchmentByClick(StationID station);
+
 // void SetStationTileSelectSize(int w, int h, int catchment);
 bool UseImprovedStationJoin();
 void OnStationTileSetChange(const Station *station, bool adding, StationType type);

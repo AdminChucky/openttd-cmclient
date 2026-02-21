@@ -2224,6 +2224,7 @@ static WindowDesc _station_view_desc(
  */
 void ShowStationViewWindow(StationID station)
 {
+	if (_ctrl_pressed) citymania::ShowCatchmentByClick(station); else
 	AllocateWindowDescFront<StationViewWindow>(_station_view_desc, station);
 }
 
