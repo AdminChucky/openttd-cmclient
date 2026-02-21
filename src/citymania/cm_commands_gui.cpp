@@ -29,8 +29,14 @@
 namespace citymania {
 
 bool _novahost = true;
-bool _admin = false;
 IniFile *_inilogin = NULL;
+
+/* admin company buttons */
+bool _admin = false;
+int ACB_left = 0;
+int ACB_top = 0;
+int ACB_width = 0;
+int ACB_Location[3][15];
 
 static const int HTTPBUFLEN = 1024;
 static const int MAX_COMMUNITY_STRING_LEN = 128;
@@ -214,7 +220,6 @@ char _inilogindata[10][MAX_COMMUNITY_STRING_LEN];
 
 void AccountLogin(CommunityName community);
 void IniReloadLogin();
-void ShowAdminCompanyButtons(int left, int top, int width, int company2);
 
 bool novahost() {
 	return _novahost;
@@ -252,12 +257,8 @@ void IniLoginInitiate(){
 	if(_inilogin != NULL) return; //it was already set
 	_inilogin = new IniFile({CFG_LOGIN_KEY});
 	_inilogin->LoadFromDisk(CFG_LOGIN_FILE, BASE_DIR);
-	try {
+	if (FileExists(_personal_dir + "/citymania.cfg"))
 		IniReloadLogin();
-	}
-    catch (...){
-		return;
-	}
 }
 
 std::string GetLoginItem(std::string_view itemname){
@@ -752,9 +753,7 @@ std::string hex_join(const Container& data, bool uppercase = false) {
     return result;
 }
 
-//login window
-class LoginWindow : public Window {
-public:
+struct LoginWindow : public Window { LoginWindowQueryWidgets query_widget;
 
 	std::int8_t _community = stoi(GetServerItem(COMMUNITY));
 	LoginWindow(WindowDesc &desc, WindowNumber window_number) : Window(desc) {
@@ -918,8 +917,6 @@ public:
 		}
 		this->SetDirty();
 	}
-private:
-	LoginWindowQueryWidgets query_widget;
 };
 
 struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets query_widget;
@@ -929,13 +926,18 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
         : Window(desc) {
 
         this->InitNested(window_number);
-
+        
         /* disable not supported buttons for n-ice */
         if (GetServerItem(COMMUNITY) == "1") {
             this->DisableWidget(ACB_COMPANY_SUSPEND);
             this->DisableWidget(ACB_COMPANY_UNSUSPEND);
             this->DisableWidget(ACB_COMPANY_AWARNING);
         }
+		this->FinishInitNested(window_number);
+
+		/* caption of window in company colour */
+		this->owner = Owner(static_cast<uint8_t>(window_number) - 1);
+        
     }
 
 	static void CWCompanyResetCallback(Window* w, bool confirmed)
@@ -1086,7 +1088,7 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 };
 
 /* user login */
-static const NWidgetPart _nested_login_window_widgets[] = {
+static constexpr std::initializer_list<NWidgetPart> _nested_login_window_widgets = {
 	NWidget(NWID_HORIZONTAL),
 		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
 		NWidget(WWT_CAPTION, COLOUR_BROWN), SetStringTip(CM_STR_LOGIN_WINDOW_CAPTION,0),
@@ -1133,7 +1135,7 @@ static const NWidgetPart _nested_login_window_widgets[] = {
 };
 
 /* admin login */
-static const NWidgetPart _nested_admin_window_widgets[] = {
+static constexpr std::initializer_list<NWidgetPart> _nested_admin_window_widgets = {
 	NWidget(NWID_HORIZONTAL),
 		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
 		NWidget(WWT_CAPTION, COLOUR_BROWN), SetStringTip(CM_STR_LOGIN_WINDOW_CAPTION,0),
@@ -1191,11 +1193,9 @@ static const NWidgetPart _nested_admin_window_widgets[] = {
 };
 
 /* admin company buttons */
-static const NWidgetPart _nested_admin_company_window_widgets[] = {
+static constexpr std::initializer_list<NWidgetPart> _nested_admin_company_window_widgets = {
 	NWidget(NWID_HORIZONTAL),
-		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
-		NWidget(WWT_CAPTION, COLOUR_RED, ACB_COMPANY_CAPTION), SetStringTip(CM_STR_ACB_COMPANY_ADMIN_CAPTION, 0),
-		NWidget(WWT_STICKYBOX, COLOUR_GREY),
+		NWidget(WWT_CAPTION, COLOUR_GREY, ACB_COMPANY_CAPTION), SetStringTip(CM_STR_ACB_COMPANY_ADMIN_CAPTION, 0), SetMinimalSize(10, 17),
 	EndContainer(),
 	NWidget(WWT_PANEL, COLOUR_GREY), SetResize(1, 0),
 		NWidget(NWID_HORIZONTAL),
@@ -1254,6 +1254,7 @@ void CheckCommunity() {
 };
 
 void CheckAdmin() {
+    IniLoginInitiate();
     if (GetLoginItem(ADMIN) == "1")
         _admin = true;
 };
@@ -1295,12 +1296,29 @@ void ShowLoginWindow() {
 };
 
 /* admin company buttons */
-void ShowAdminCompanyButtons(int left, int top, int width, int company2) {
-    IniLoginInitiate();
-    CheckCommunity();
+void ShowAdminCompanyButtons(int left, int top, int width, int company2, bool draw, bool redraw) {
+    if (!draw) {
+        CloseWindowById(CM_WC_ADMIN_COMPANY_BUTTONS, company2);
+        /* clear for company */
+        ACB_Location[company2 - 1][0] = 0;
+        ACB_Location[company2 - 1][1] = 0;
+        ACB_Location[company2 - 1][2] = 0;
+        return;
+    }
 	if (!Company::IsValidID((CompanyID)(company2-1))) return;
-    Window *w;
-	CloseWindowById(CM_WC_ADMIN_COMPANY_BUTTONS, company2);
+	if ((left == ACB_Location[company2 - 1][0]) &&
+            (top == ACB_Location[company2 - 1][1]) &&
+            (width == ACB_Location[company2 - 1][2]) &&
+			(!redraw))
+            return;
+
+	/* set for company */
+    ACB_Location[company2 - 1][0] = left;
+    ACB_Location[company2 - 1][1] = top;
+    ACB_Location[company2 - 1][2] = width;
+
+    CloseWindowById(CM_WC_ADMIN_COMPANY_BUTTONS, company2);
+	Window *w;
     w = new AdminCompanyButtonsWindow(_admin_company_buttons_desc, company2);
     w->top = top;
     w->left = left + width;

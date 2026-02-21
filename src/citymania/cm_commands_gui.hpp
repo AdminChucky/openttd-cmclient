@@ -7,7 +7,7 @@ void ShowCommandsToolbar();
 void ShowLoginWindow();
 void CheckCommunity();
 void CheckAdmin();
-void ShowAdminCompanyButtons(int left, int top, int width, int company2);
+void ShowAdminCompanyButtons(int left, int top, int width, int company2, bool draw, bool redraw);
 
 bool GetAdmin();
 } // namespace citymania
