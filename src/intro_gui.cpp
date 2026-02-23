@@ -41,6 +41,7 @@
 #include "table/sprites.h"
 
 #include "citymania/cm_hotkeys.hpp"
+#include "citymania/cm_commands_gui.hpp"
 
 #include "safeguards.h"
 
@@ -276,6 +277,8 @@ struct SelectGameWindow : public Window {
 				DrawStringMultiLine(r, GetString(STR_INTRO_TRANSLATION, _current_language->missing), TC_FROMSTRING, SA_CENTER);
 				break;
 		}
+        /* serverbuttons */
+        citymania::CreateCommunityServerList();
 	}
 
 	void OnResize() override

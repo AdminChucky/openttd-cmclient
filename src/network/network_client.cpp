@@ -1201,6 +1201,8 @@ NetworkRecvStatus ClientNetworkGameSocketHandler::Receive_SERVER_CONFIG_UPDATE(P
 	_network_server_name = p.Recv_string(NETWORK_NAME_LENGTH);
 
 	InvalidateWindowData(WC_CLIENT_LIST, 0);
+
+	citymania::CreateCommunityServerList();  //@cm_commands_gui.cpp
 	CSleep(3 * MILLISECONDS_PER_TICK);
 	citymania::ShowLoginWindow(); //@cm_commands_gui.cpp
 

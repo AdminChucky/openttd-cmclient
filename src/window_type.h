@@ -749,6 +749,7 @@ enum WindowClass : uint16_t {
 	CM_WC_LOGIN_WINDOW,
 	CM_WC_CB_TOWN,
     CM_WC_ADMIN_COMPANY_BUTTONS,
+    CM_WC_SERVER_BUTTONS,
 
 	WC_INVALID = 0xFFFF, ///< Invalid window.
 };

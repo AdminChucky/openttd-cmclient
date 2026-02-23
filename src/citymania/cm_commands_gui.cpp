@@ -25,6 +25,9 @@
 
 #include <sstream>
 
+#ifndef lastof
+#define lastof(a) ((a) + (sizeof(a) / sizeof((a)[0])))
+#endif
 
 namespace citymania {
 
@@ -37,6 +40,15 @@ int ACB_left = 0;
 int ACB_top = 0;
 int ACB_width = 0;
 int ACB_Location[3][15];
+
+/* server buttons */
+std::string _server_list_text;  // list from http
+std::string _cc_address;        // current adddress
+std::string _cc_name;           // current name
+int _cc_porti;                  // current port
+std::int8_t _fromlast = 0;
+int _left, _top, _height, _width;
+int _servercount;                // how many servers
 
 static const int HTTPBUFLEN = 1024;
 static const int MAX_COMMUNITY_STRING_LEN = 128;
@@ -198,6 +210,16 @@ enum AdminCompanyButtonsQueryWidgets {
 	ACBQ_COMPANY_MOVE_PLAYER,
 };
 
+enum ServerButtonsWidgets {
+    WID_SB_SELECT_NICE,
+    WID_SB_SELECT_BTPRO,
+    WID_SB_SELECT_CITYMANIA,
+    WID_SB_SELECT_NONE,
+    AC_SERVERS,
+};
+
+enum ServerButtonsQueryWidgets {};
+
 enum CommunityName {
 	CITYMANIA,
 	NICE,
@@ -220,6 +242,8 @@ char _inilogindata[10][MAX_COMMUNITY_STRING_LEN];
 
 void AccountLogin(CommunityName community);
 void IniReloadLogin();
+void ShowServerButtons(int left, int top, int height, int width);
+void ReloadServerButtons();
 
 bool novahost() {
 	return _novahost;
@@ -636,6 +660,128 @@ void ShowCommandsToolbar()
 	// AllocateWindowDescFront<CommandsToolbarWindow>(&_commands_toolbar_desc, 0);
 }
 
+/* for server buttons */
+/** To handle Community Server list */
+class CommunityServerManager: public HTTPCallback {
+ public:
+	CommunityServerManager() {}
+
+	void initiateServerSequence(const std::string &uri) {
+		this->cursor = this->buf;
+        this->buf_last = lastof(buf); //copilot fix for lastof at top of this file
+		NetworkHTTPSocketHandler::Connect(uri, this);
+	}
+
+	void SaveServerString() const {
+		_server_list_text += this->buf;
+        //NetworkClientSendChatToServer("*** data has been saved.");
+        if (FindWindowByClass(CM_WC_LOGIN_WINDOW)) ReloadServerButtons();
+        else if (FindWindowByClass(WC_SELECT_GAME)) {
+            Window *w = FindWindowByClass(WC_SELECT_GAME);
+            ShowServerButtons(w->left, w->top, w->height, w->width);
+        }
+        else return;
+	}
+
+	void inspectServerData() {
+		if (this->cursor - this->buf >= 4) this->SaveServerString();
+		else {
+			//NetworkClientSendChatToServer("*** no data has been received.");
+		}
+	}
+
+	void OnFailure() override {
+		ShowErrorMessage(GetEncodedString(CM_STR_SB_SERVER_LIST_UNREACHABLE), {}, WL_ERROR);
+        //NetworkClientSendChatToServer("*** connection failed.");
+	}
+
+	bool IsCancelled() const override { return false; }
+
+	void OnReceiveData(std::unique_ptr<char[]> data, size_t length) override
+	{
+		if (data.get() == nullptr)
+		{
+			this->inspectServerData();
+            this->cursor = nullptr;
+		} else {
+            for (size_t i = 0; i < length && this->cursor < this->buf_last; i++, this->cursor++) {
+				*(this->cursor) = data.get()[i];
+            }
+            *(this->cursor) = '\0';
+            //NetworkClientSendChatToServer("*** data received");
+        }
+
+	}
+
+ private:
+    char buf[4096]{};
+	char *buf_last{};
+    char *cursor{};
+};
+
+void CommunityServerManagerSend()
+{
+    std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+    std::string uri;
+
+    if (_community == 1) {
+        uri = fmt::format("http://n-ice.org/openttd/serverlist.txt");
+    } else if (_community == 2) {
+        uri = fmt::format("https://openttd.btpro.nl/btproservers.txt");
+    } else if (_community == 3) {
+        uri = fmt::format("http://altseehof.de/openttd/citymaniaservers.txt");
+    }
+
+	static CommunityServerManager servermgr{};
+	servermgr.initiateServerSequence(uri);
+}
+
+void GetCommunityServerListText(){
+    std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+	if(_fromlast == _community || _community == 0) return;
+	_fromlast = _community;
+	_server_list_text.clear();
+	CommunityServerManagerSend();
+}
+
+bool GetCommunityServer(int number, bool findonly) {
+
+	if(_server_list_text.empty()) return false;
+    _cc_address = "";
+    _cc_name = "";
+
+    std::string server;
+    std::string port;
+
+	if(number < 10) {
+		server = fmt::format("SERVER0{}", number);
+        port = fmt::format("PORT0{}", number);
+	} else {
+		server = fmt::format("SERVER{}", number);
+		port = fmt::format("PORT{}", number);
+	}
+	size_t posaddress = _server_list_text.find(server);
+	size_t posport = _server_list_text.find(port);
+
+	if(posaddress != std::string::npos && posport != std::string::npos){
+		std::string saddress = _server_list_text.substr(posaddress + 10, _server_list_text.find(";", posaddress + 10) - posaddress - 10);
+		std::string sport = _server_list_text.substr(posport + 8, _server_list_text.find(";", posport + 8) - posport - 8);
+
+		if(saddress.compare("DISABLED") == 0) return false;
+		else if(findonly) return true;
+
+		_cc_address = saddress;
+		_cc_porti = std::stoi(sport);
+
+		return true;
+	}
+	else if(findonly) return false;
+
+	ShowErrorMessage(GetEncodedString(CM_STR_SB_SERVER_LIST_ERROR_FILE), {}, WL_ERROR);
+	return false;
+}
+/* end of serverbuttons */
+
 // login window
 class GetHTTPContent: public HTTPCallback {
 public:
@@ -768,6 +914,17 @@ struct LoginWindow : public Window { LoginWindowQueryWidgets query_widget;
             this->DisableWidget(LWW_ADMIN_PW);
         }
 		
+	}
+
+	void Close([[maybe_unused]] int data) override {
+		CloseWindowByClass(CM_WC_SERVER_BUTTONS);
+		this->Window::Close();  
+    }
+
+	void DrawWidget(const Rect &r, WidgetID widget) const override
+	{
+        r; widget;
+		ShowServerButtons(this->left, this->top, this->height, this->width);
 	}
 
 	std::string GetWidgetString(WidgetID widget, StringID stringid) const override
@@ -1087,6 +1244,192 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 
 };
 
+struct ServerButtonsWindow : Window {
+    ServerButtonsQueryWidgets query_widget{};
+
+	std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+    
+
+    ServerButtonsWindow(WindowDesc &desc, WindowNumber window_number) : Window(desc) {
+
+		this->InitNested(window_number);
+
+		if(_community == 1){
+            this->GetWidget<NWidgetCore>(WID_SB_SELECT_NICE)->colour = COLOUR_ORANGE;
+		}
+		else if(_community == 2){
+			this->GetWidget<NWidgetCore>(WID_SB_SELECT_BTPRO)->colour = COLOUR_ORANGE;
+		}
+		else if(_community == 3){
+			this->GetWidget<NWidgetCore>(WID_SB_SELECT_CITYMANIA)->colour = COLOUR_ORANGE;
+		}
+	}
+
+	virtual void OnClick([[maybe_unused]] Point pt, int widget, [[maybe_unused]] int click_count)
+	{
+		switch (widget) {
+            case WID_SB_SELECT_NICE:
+                SetServerItem(COMMUNITY, "1");
+				GetCommunityServerListText();
+				break;
+            case WID_SB_SELECT_BTPRO:
+                SetServerItem(COMMUNITY, "2");
+                GetCommunityServerListText();
+                break;
+            case WID_SB_SELECT_CITYMANIA:
+                SetServerItem(COMMUNITY, "3");
+                GetCommunityServerListText();
+                break;
+            default:
+                if (widget >= AC_SERVERS) {
+                    if (GetCommunityServer(widget - AC_SERVERS + 1,false)) {
+                        if (_ctrl_pressed) {
+                            NetworkClientConnectGame(fmt::format("{}:{}", _cc_address, _cc_porti), COMPANY_NEW_COMPANY);
+                        } else {
+							NetworkClientConnectGame(fmt::format("{}:{}", _cc_address, _cc_porti), COMPANY_SPECTATOR);
+                        }
+                    }
+                } else ShowErrorMessage(GetEncodedString(CM_STR_SB_SERVER_DISABLED), {}, WL_ERROR);
+                break;
+		}
+	}
+
+	// TODO: this is called multiple times when opening the server buttons window,
+	// should be optimized to only get server count once and store it for later use
+
+	static void GetServerName(int number)
+	{
+        size_t poscount = _server_list_text.find("servercount");
+		std::string scount = _server_list_text.substr(poscount + 12, 3);
+        _servercount = std::stoi(scount);
+
+		std::string name;
+		if (number < 10){
+			name = fmt::format("NAME0{}",number);
+		} else {
+			name = fmt::format("NAME{}",number);
+		}
+		std::string server;
+		if (number < 10){
+			server = fmt::format("SERVER0{}",number);
+		} else {
+			server = fmt::format("SERVER{}",number);
+		}
+		size_t posname = _server_list_text.find(name);
+		std::string sname = _server_list_text.substr(posname + 8, _server_list_text.find(";", posname + 8) - posname - 8);
+
+		if (number > _servercount)
+                    _cc_name = "-";
+                else
+                    _cc_name = sname;
+	};
+	
+	int GetServerCount() const
+	{
+        size_t poscount = _server_list_text.find("servercount");
+		std::string scount = _server_list_text.substr(poscount + 12, 3);
+        _servercount = std::stoi(scount);
+        return _servercount;
+	};
+
+	virtual void DrawWidget(const Rect &r, int widget) const override
+	{
+		std::string name;
+        std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+
+		switch (widget) {
+            case AC_SERVERS:
+			default:
+				if(widget >= AC_SERVERS){
+                    GetServerCount();
+					if(widget - AC_SERVERS + 1 < 10){
+                        name = fmt::format("NAME0{}",widget - AC_SERVERS +1);
+					}
+					else {
+						name = fmt::format("NAME{}",widget - AC_SERVERS +1);
+					}
+					size_t posname = _server_list_text.find(name);
+					std::string sname = _server_list_text.substr(posname + 8, _server_list_text.find(";", posname + 8) - posname - 8);
+					_cc_name = sname;
+
+					if (_community == 1) _servercount = _servercount-1; //to hide server 0 for n-ice
+					if (widget - AC_SERVERS + 1 > _servercount) _cc_name = "";
+
+					//SetDParamStr(0, _cc_name);
+					//DrawString(r.left, r.right, r.top + 10, CM_STR_SB_NETWORK_DIRECT_JOIN_GAME, TC_FROMSTRING, SA_CENTER);
+					DrawStringMultiLine(r, GetString(CM_STR_SB_NETWORK_DIRECT_JOIN_GAME, _cc_name), TC_FROMSTRING, SA_CENTER);
+
+				}
+				break;
+		}
+	}
+};
+
+std::unique_ptr<NWidgetBase> MakeServerButtons()
+{
+	std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+	auto ver = std::make_unique<NWidgetVertical>();
+
+	if(_community == 0 || _server_list_text.empty()){
+		auto leaf = std::make_unique<NWidgetBackground>(WWT_PANEL, COLOUR_GREY, AC_SERVERS);
+		ver->Add(std::move(leaf));
+		return ver;
+	}
+
+    /* check for disabled server from serverlist file */
+        int active = 0, aactive[50]{}, s_max = 0;
+	if (_community == 1) s_max = 36; //for n-ice
+	if (_community == 2) s_max = 36; //for btpro
+    if (_community == 3) s_max = 36; //for citymania
+	for (int i = 0; i < s_max; i++) {
+        aactive[i] = GetCommunityServer(i + 1, true) ? (i + 1) : 0; //server disabled?
+        active++;
+    }
+
+	auto hor = std::make_unique<NWidgetHorizontal>();
+	int i1 = 0, i2 = 0;
+	for (int i = 0; i < s_max; i++) {
+		//if ((aactive[i] == 0) && (_community == 1)) continue; //hide button if disabled - for n-ice only
+		i2++;
+		//if ((i1 == 5) || (i1 == 10) || (i1 == 15) || (i1 == 20) || (i1 == 25) || (i1 == 30) || (i1 == 35) || (i1 == 40) || (i1 == 45) || (i1 == 50)) {
+		if ((i1 == 3) || (i1 == 6) || (i1 == 9) || (i1 == 12) || (i1 == 15) || (i1 == 18) || (i1 == 21) || (i1 == 24) || (i1 == 27) || (i1 == 30) || (i1 == 33) || (i1 == 36)) {
+			i2=0;
+			auto spce = std::make_unique<NWidgetSpacer>(3, 0);
+			spce->SetFill(1, 0);
+			hor->Add(std::move(spce));
+			ver->Add(std::move(hor));
+			auto spc = std::make_unique<NWidgetSpacer>(0, 4);
+			spc->SetFill(1, 0);
+			ver->Add(std::move(spc));
+			hor = std::make_unique<NWidgetHorizontal>();
+		}
+		auto spce = std::make_unique<NWidgetSpacer>(4, 0);
+		spce->SetFill(1, 0);
+		hor->Add(std::move(spce));
+		auto leaf = std::make_unique<NWidgetBackground>(WWT_PANEL, COLOUR_ORANGE, AC_SERVERS + i);
+		if(aactive[i] == 0) leaf->SetDisabled(true);
+		leaf->SetStringTip(CM_STR_SB_NETWORK_DIRECT_JOIN_GAME, CM_STR_SB_NETWORK_DIRECT_JOIN_TOOLTIP);
+		leaf->SetMinimalSize(80, 25);
+		hor->Add(std::move(leaf));
+		i1++;
+	}
+
+	/* no need since we used 36 buttons */
+	/* arrange buttons @ last line */
+	//if (i2==0) i2=375;
+	//if (i2==1) i2=282;
+	//if (i2==2) i2=189;
+	//if (i2==3) i2=96;
+	//if (i2==4) i2=3;
+
+	auto spce = std::make_unique<NWidgetSpacer>(i2, 0);
+	spce->SetFill(1, 0);
+	hor->Add(std::move(spce));
+	ver->Add(std::move(hor));
+	return ver;
+}
+
+
 /* user login */
 static constexpr std::initializer_list<NWidgetPart> _nested_login_window_widgets = {
 	NWidget(NWID_HORIZONTAL),
@@ -1107,12 +1450,12 @@ static constexpr std::initializer_list<NWidgetPart> _nested_login_window_widgets
 				NWidget(NWID_SPACER), SetMinimalSize(0, 10),
 				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_USERNAME),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_NAME), SetMinimalSize(100, 25), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, LWW_USER_NAME), SetMinimalSize(100, 25), SetFill(1, 0),
 				SetStringTip(CM_STR_LOGIN_WINDOW_USERNAME_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_USERNAME_HELPTEXT),
                 NWidget(NWID_SPACER), SetMinimalSize(0, 10),
 				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_PASSWORD),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_PW), SetMinimalSize(100, 25), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, LWW_USER_PW), SetMinimalSize(100, 25), SetFill(1, 0),
 				SetStringTip(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_PASSWORD_HELPTEXT),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 15),
 			EndContainer(),
@@ -1124,7 +1467,7 @@ static constexpr std::initializer_list<NWidgetPart> _nested_login_window_widgets
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_LOGOUT), SetMinimalSize(100, 25), SetAlignment(SA_CENTER), SetFill(1, 0),
 				SetStringTip(CM_STR_TOOLBAR_COMMANDS_LOGOUT_CAPTION, CM_STR_TOOLBAR_COMMANDS_LOGOUT_TOOLTIP),
             EndContainer(),
-			NWidget(NWID_SPACER), SetMinimalSize(0,100), //Placeholder
+			NWidget(NWID_SPACER), SetMinimalSize(0,108), //Placeholder
 			NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize),
 				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT3), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
 				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT4), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
@@ -1154,17 +1497,17 @@ static constexpr std::initializer_list<NWidgetPart> _nested_admin_window_widgets
 				NWidget(NWID_SPACER), SetMinimalSize(0, 10),
 				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_USERNAME),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_NAME), SetMinimalSize(100, 25), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, LWW_USER_NAME), SetMinimalSize(100, 25), SetFill(1, 0),
 				SetStringTip(CM_STR_LOGIN_WINDOW_USERNAME_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_USERNAME_HELPTEXT),
                 NWidget(NWID_SPACER), SetMinimalSize(0, 10),
 				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_PASSWORD),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_USER_PW), SetMinimalSize(100, 25), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, LWW_USER_PW), SetMinimalSize(100, 25), SetFill(1, 0),
 				SetStringTip(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_PASSWORD_HELPTEXT),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 10),
 				NWidget(WWT_TEXT, INVALID_COLOUR, LWW_PASSWORD_ADMIN),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 5),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_ADMIN_PW), SetMinimalSize(100, 25), SetFill(1, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, LWW_ADMIN_PW), SetMinimalSize(100, 25), SetFill(1, 0),
 				SetStringTip(CM_STR_LOGIN_WINDOW_PASSWORD_DISPLAY, CM_STR_LOGIN_WINDOW_CHANGE_PASSWORD_HELPTEXT),
 				NWidget(NWID_SPACER), SetMinimalSize(0, 15),
 			EndContainer(),
@@ -1182,7 +1525,7 @@ static constexpr std::initializer_list<NWidgetPart> _nested_admin_window_widgets
 				NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LWW_ADMIN_LOGOUT), SetMinimalSize(100, 25), SetAlignment(SA_CENTER), SetFill(1, 0),
 				SetStringTip(CM_STR_LOGIN_WINDOW_LOGOUT_CAPTION_ADMIN, CM_STR_LOGIN_WINDOW_LOGOUT_TOOLTIP_ADMIN),
             EndContainer(),
-			NWidget(NWID_SPACER), SetMinimalSize(0,10), //Placeholder
+			NWidget(NWID_SPACER), SetMinimalSize(0,14), //Placeholder
 			NWidget(NWID_VERTICAL, NWidContainerFlag::EqualSize),
 				//NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT3), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
 				//NWidget(WWT_TEXT, INVALID_COLOUR, LWW_TXT4), SetMinimalSize(100, 15), SetAlignment(SA_LEFT), SetFill(1, 0),
@@ -1229,28 +1572,58 @@ static constexpr std::initializer_list<NWidgetPart> _nested_admin_company_window
 	EndContainer(),
 };
 
+static constexpr std::initializer_list<NWidgetPart> _nested_server_buttons_window_widgets = {
+	NWidget(NWID_HORIZONTAL),
+		NWidget(WWT_CLOSEBOX, COLOUR_BROWN),
+		NWidget(WWT_CAPTION, COLOUR_BROWN), SetStringTip(CM_STR_SB_SERVER_LIST,0),
+		NWidget(WWT_STICKYBOX, COLOUR_BROWN),
+	EndContainer(),
+	NWidget(WWT_PANEL, COLOUR_BROWN), SetFill(0, 1),
+		NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPadding(4), SetPIP(0, 7, 0),
+ 				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SB_SELECT_NICE), SetMinimalSize(80, 25), SetStringTip(CM_STR_SB_SELECT_NICE, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SB_SELECT_BTPRO), SetMinimalSize(80, 25), SetStringTip(CM_STR_SB_SELECT_BTPRO, 0),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SB_SELECT_CITYMANIA), SetMinimalSize(80, 25), SetStringTip(CM_STR_SB_SELECT_CITYMANIA, 0),
+ 		EndContainer(),
+		NWidget(NWID_SPACER), SetMinimalSize(0, 3),
+        NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
+			NWidgetFunction(MakeServerButtons),
+		EndContainer(),
+		NWidget(NWID_SPACER), SetMinimalSize(0, 3),
+    EndContainer(),
+};
 
 /* Identify the current community */
 void CheckCommunity() {
-    if (_network_server_name.find("n-ice.org") != std::string::npos) {
-        if (GetServerItem(COMMUNITY) != "1") {
-            SetServerItem(COMMUNITY, "1");
+    if (_networking) {
+        if (_network_server_name.find("n-ice.org") != std::string::npos) {
+            if (GetServerItem(COMMUNITY) != "1") {
+                SetServerItem(COMMUNITY, "1");
+                GetCommunityServerListText();
+            }
+        } else if (_network_server_name.find("BTPro.nl") != std::string::npos) {
+            if (GetServerItem(COMMUNITY) != "2") {
+                SetServerItem(COMMUNITY, "2");
+                GetCommunityServerListText();
+            }
+        } else if (_network_server_name.find("CityMania.org") !=
+                   std::string::npos) {
+            if (GetServerItem(COMMUNITY) != "3") {
+                SetServerItem(COMMUNITY, "3");
+                GetCommunityServerListText();
+            }
+        } else if (_network_server_name.find("reddit.com") !=
+                   std::string::npos) {
+            if (GetServerItem(COMMUNITY) != "4") {
+                SetServerItem(COMMUNITY, "4");
+                // GetCommunityServerListText();
+            }
+        } else {  // Unknown Server
+            SetServerItem(COMMUNITY, "0");
         }
-    } else if (_network_server_name.find("BTPro.nl") != std::string::npos) {
-        if (GetServerItem(COMMUNITY) != "2") {
-            SetServerItem(COMMUNITY, "2");
-        }
-    } else if (_network_server_name.find("CityMania") != std::string::npos) {
-        if (GetServerItem(COMMUNITY) != "3") {
-            SetServerItem(COMMUNITY, "3");
-        }
-    } else if (_network_server_name.find("reddit.com") != std::string::npos) {
-        if (GetServerItem(COMMUNITY) != "4") {
-            SetServerItem(COMMUNITY, "4");
-        }
-    } else {  // Unknown Server
-        SetServerItem(COMMUNITY, "0");
     }
+    /* for intro menue to enable/disable serverbuttons */
+    if ((GetServerItem(COMMUNITY) == "1") || (GetServerItem(COMMUNITY) == "2") || (GetServerItem(COMMUNITY) == "3"))
+        GetCommunityServerListText();
 };
 
 void CheckAdmin() {
@@ -1281,6 +1654,14 @@ static WindowDesc _admin_company_buttons_desc(
     CM_WC_ADMIN_COMPANY_BUTTONS, WC_NONE,
     WindowDefaultFlag::Construction,
     _nested_admin_company_window_widgets
+);
+
+/* server buttons */
+ static WindowDesc _server_buttons_desc(
+	WDP_AUTO, "cm_commands", 0, 0,
+    CM_WC_SERVER_BUTTONS, WC_NONE,
+	WindowDefaultFlag::Construction,
+    _nested_server_buttons_window_widgets
 );
 
 /* user/admin login window*/
@@ -1325,6 +1706,35 @@ void ShowAdminCompanyButtons(int left, int top, int width, int company2, bool dr
     w->SetDirty();
 };
 
+void ShowServerButtons(int left, int top, int height, int width) {
 
+	_left = left;
+    _top = top;
+    _height = height;
+    _width = width;
+
+	IniLoginInitiate();
+    if (!FileExists(_personal_dir + "/citymania.cfg"))
+		return;
+
+	/* create window at coordinates */
+    Window *b;
+    if (FindWindowByClass(CM_WC_SERVER_BUTTONS))
+		CloseWindowByClass(CM_WC_SERVER_BUTTONS);
+    b = new ServerButtonsWindow(_server_buttons_desc, 0);
+    //b->top = top+height;
+    b->top = _top;
+    b->left = _left + _width;
+    b->SetDirty();
+};
+
+void ReloadServerButtons() {
+	ShowServerButtons(_left, _top, _height, _width);
+}
+
+void CreateCommunityServerList() {
+    IniLoginInitiate();
+    CheckCommunity();
+};
 
 } // namespace citymania
