@@ -6517,3 +6517,15 @@ CM_STR_ACB_PLAYER_NEWSTICKET                                    :{BLACK}Type mes
 CM_STR_ACB_COMPANY_NEWSTICKET                                   :{BLACK}Type message as newspapper ticket to this Company
 CM_STR_ACB_COMPANY_JOIN2                                        :{BLACK}A. Join
 CM_STR_ACB_COMPANY_JOIN2_TOOLTIP                                :{BLACK}Join as an admin
+
+
+### Server buttons
+CM_STR_SB_SELECT_NICE                                           :{BLACK}N-ice
+CM_STR_SB_SELECT_BTPRO                                          :{BLACK}BTPro
+CM_STR_SB_SELECT_CITYMANIA                                      :{BLACK}Citymania
+CM_STR_SB_SERVER_LIST_UNREACHABLE                               :{WHITE}Couldn't get server details
+CM_STR_SB_SERVER_DISABLED                                       :{WHITE}Server is Disabled / Offline
+CM_STR_SB_SERVER_LIST_ERROR_FILE                                :{WHITE}Error on getting servers file
+CM_STR_SB_NETWORK_DIRECT_JOIN_GAME                              :{BLACK}{RAW_STRING}
+CM_STR_SB_NETWORK_DIRECT_JOIN_TOOLTIP                           :{BLACK}Hold CTRL and click for joining with new company.
+CM_STR_SB_LAST_SERVER                                           :{BLACK}Join the server you played last time

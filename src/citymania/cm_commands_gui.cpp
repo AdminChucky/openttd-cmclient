@@ -23,6 +23,7 @@
 #include "../window_gui.h"
 #include "../querystring_gui.h" // QueryString definition
 
+#include <initializer_list>
 #include <sstream>
 
 
@@ -37,6 +38,16 @@ int ACB_left = 0;
 int ACB_top = 0;
 int ACB_width = 0;
 int ACB_Location[3][15];
+
+/* server buttons */
+std::string _server_list_text; // list from http
+std::string _cc_address;  // current adddress
+std::string _cc_name;     // current name
+int _cc_porti;            // current port
+std::int8_t _fromlast = 0;
+int _left, _top, _height;
+int ls_left, ls_top, ls_height; // for last server
+int _servercount;  // how many servers
 
 static const int HTTPBUFLEN = 1024;
 static const int MAX_COMMUNITY_STRING_LEN = 128;
@@ -198,6 +209,21 @@ enum AdminCompanyButtonsQueryWidgets {
 	ACBQ_COMPANY_MOVE_PLAYER,
 };
 
+enum LastServerWidgets {
+       LSW_CAPTION,
+       LSW_BUTTON,
+};
+
+enum ServerButtonsWidgets {
+    WID_SB_SELECT_NICE,
+    WID_SB_SELECT_BTPRO,
+    WID_SB_SELECT_CITYMANIA,
+    WID_SB_SELECT_NONE,
+    AC_SERVERS,
+};
+
+enum ServerButtonsQueryWidgets {};
+
 enum CommunityName {
 	CITYMANIA,
 	NICE,
@@ -220,6 +246,9 @@ char _inilogindata[10][MAX_COMMUNITY_STRING_LEN];
 
 void AccountLogin(CommunityName community);
 void IniReloadLogin();
+void ShowServerButtons(int left,int top, int height);
+void ReloadServerButtons();
+
 
 bool novahost() {
 	return _novahost;
@@ -530,93 +559,93 @@ static NWidgetBase *MakeCargoButtons(int *biggest_index)
 static const NWidgetPart _nested_commands_toolbar_widgets[] = {
 	NWidget(NWID_HORIZONTAL),
 		NWidget(WWT_CLOSEBOX, COLOUR_GREY),
-		NWidget(WWT_CAPTION, COLOUR_GREY), SetDataTip(STR_TOOLBAR_COMMANDS_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
+		NWidget(WWT_CAPTION, COLOUR_GREY), SetStringTip(STR_TOOLBAR_COMMANDS_CAPTION, STR_TOOLTIP_WINDOW_TITLE_DRAG_THIS),
 		NWidget(WWT_STICKYBOX, COLOUR_GREY),
 	EndContainer(),
 	NWidget(NWID_HORIZONTAL),
 		NWidget(NWID_VERTICAL),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_GOAL), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_GOAL_CAPTION, STR_TOOLBAR_COMMANDS_GOAL_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_QUEST), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_QUEST_CAPTION, STR_TOOLBAR_COMMANDS_QUEST_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_SCORE), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_SCORE_CAPTION, STR_TOOLBAR_COMMANDS_SCORE_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_GOAL), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_GOAL_CAPTION, STR_TOOLBAR_COMMANDS_GOAL_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_QUEST), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_QUEST_CAPTION, STR_TOOLBAR_COMMANDS_QUEST_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_SCORE), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_SCORE_CAPTION, STR_TOOLBAR_COMMANDS_SCORE_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOWN), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOWN_CAPTION, STR_TOOLBAR_COMMANDS_TOWN_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOWN_ID), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOWN_ID_CAPTION, STR_TOOLBAR_COMMANDS_TOWN_ID_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_HINT), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_HINT_CAPTION, STR_TOOLBAR_COMMANDS_HINT_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOWN), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOWN_CAPTION, STR_TOOLBAR_COMMANDS_TOWN_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOWN_ID), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOWN_ID_CAPTION, STR_TOOLBAR_COMMANDS_TOWN_ID_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_HINT), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_HINT_CAPTION, STR_TOOLBAR_COMMANDS_HINT_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_LOGIN), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_LOGIN_CAPTION, STR_TOOLBAR_COMMANDS_LOGIN_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_NAME), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NAME_CAPTION, STR_TOOLBAR_COMMANDS_NAME_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_LOGIN), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_LOGIN_CAPTION, STR_TOOLBAR_COMMANDS_LOGIN_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_NAME), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NAME_CAPTION, STR_TOOLBAR_COMMANDS_NAME_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TIMELEFT), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TIMELEFT_CAPTION, STR_TOOLBAR_COMMANDS_TIMELEFT_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_INFO), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_INFO_CAPTION, STR_TOOLBAR_COMMANDS_INFO_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TIMELEFT), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TIMELEFT_CAPTION, STR_TOOLBAR_COMMANDS_TIMELEFT_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_INFO), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_INFO_CAPTION, STR_TOOLBAR_COMMANDS_INFO_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS0), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS1), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS2), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS0), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS1), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS2), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS3), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS4), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS5), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS3), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS4), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS5), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS6), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS7), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS9), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS6), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS7), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS9), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS10), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX1), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX2), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NS10), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX1), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX2), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX3), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX4), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX5), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX3), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX4), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_WHITE, CTW_NSX5), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_NS_CAPTION, STR_TOOLBAR_COMMANDS_NS_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_RESETME), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_RESETME_CAPTION, STR_TOOLBAR_COMMANDS_RESETME_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_SAVEME), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_SAVEME_CAPTION, STR_TOOLBAR_COMMANDS_SAVEME_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_RESETME), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_RESETME_CAPTION, STR_TOOLBAR_COMMANDS_RESETME_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_SAVEME), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_SAVEME_CAPTION, STR_TOOLBAR_COMMANDS_SAVEME_TOOLTIP),
 			EndContainer(),
 			//more
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPICS), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOPICS_CAPTION, STR_TOOLBAR_COMMANDS_TOPICS_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_HELP), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_HELP_CAPTION, STR_TOOLBAR_COMMANDS_HELP_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPICS), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOPICS_CAPTION, STR_TOOLBAR_COMMANDS_TOPICS_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_HELP), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_HELP_CAPTION, STR_TOOLBAR_COMMANDS_HELP_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC1), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOPIC1_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC1_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_RULES), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_RULES_CAPTION, STR_TOOLBAR_COMMANDS_RULES_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC1), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOPIC1_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC1_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_RULES), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_RULES_CAPTION, STR_TOOLBAR_COMMANDS_RULES_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC2), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOPIC2_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC2_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_CBHINT), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_CBHINT_CAPTION, STR_TOOLBAR_COMMANDS_CBHINT_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC2), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOPIC2_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC2_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_CBHINT), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_CBHINT_CAPTION, STR_TOOLBAR_COMMANDS_CBHINT_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC3), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOPIC3_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC3_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_BEST), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_BEST_CAPTION, STR_TOOLBAR_COMMANDS_BEST_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC3), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOPIC3_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC3_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_BEST), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_BEST_CAPTION, STR_TOOLBAR_COMMANDS_BEST_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC4), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOPIC4_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC4_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_RANK), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_RANK_CAPTION, STR_TOOLBAR_COMMANDS_RANK_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC4), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOPIC4_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC4_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_RANK), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_RANK_CAPTION, STR_TOOLBAR_COMMANDS_RANK_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC5), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOPIC5_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC5_TOOLTIP),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_ME), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_ME_CAPTION, STR_TOOLBAR_COMMANDS_ME_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC5), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOPIC5_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC5_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_ME), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_ME_CAPTION, STR_TOOLBAR_COMMANDS_ME_TOOLTIP),
 			EndContainer(),
 			NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
-				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC6), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_TOPIC6_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC6_TOOLTIP),
+				NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, CTW_TOPIC6), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_TOPIC6_CAPTION, STR_TOOLBAR_COMMANDS_TOPIC6_TOOLTIP),
 				NWidget(WWT_PANEL, COLOUR_GREY), SetResize(0, 1), EndContainer(),
 			EndContainer(),
 			NWidget(WWT_PANEL, COLOUR_GREY), SetResize(0, 1), EndContainer(),
 		EndContainer(),
 		NWidget(NWID_VERTICAL),
-			NWidget(WWT_TEXTBTN, COLOUR_GREY, CTW_CHOOSE_CARGO_AMOUNT), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_OPTION_CARGO_A_CAPTION, STR_TOOLBAR_COMMANDS_OPTION_CARGO_A_TOOLTIP),
-			NWidget(WWT_TEXTBTN, COLOUR_GREY, CTW_CHOOSE_CARGO_INCOME), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_OPTION_CARGO_I_CAPTION, STR_TOOLBAR_COMMANDS_OPTION_CARGO_I_TOOLTIP),
-			NWidget(WWT_TEXTBTN, COLOUR_GREY, CTW_CHOOSE_CARGO), SetMinimalSize(40, 20), SetFill(1, 0), SetDataTip(STR_TOOLBAR_COMMANDS_OPTION_CARGO_CAPTION, STR_TOOLBAR_COMMANDS_OPTION_CARGO_TOOLTIP),
+			NWidget(WWT_TEXTBTN, COLOUR_GREY, CTW_CHOOSE_CARGO_AMOUNT), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_OPTION_CARGO_A_CAPTION, STR_TOOLBAR_COMMANDS_OPTION_CARGO_A_TOOLTIP),
+			NWidget(WWT_TEXTBTN, COLOUR_GREY, CTW_CHOOSE_CARGO_INCOME), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_OPTION_CARGO_I_CAPTION, STR_TOOLBAR_COMMANDS_OPTION_CARGO_I_TOOLTIP),
+			NWidget(WWT_TEXTBTN, COLOUR_GREY, CTW_CHOOSE_CARGO), SetMinimalSize(40, 20), SetFill(1, 0), SetStringTip(STR_TOOLBAR_COMMANDS_OPTION_CARGO_CAPTION, STR_TOOLBAR_COMMANDS_OPTION_CARGO_TOOLTIP),
 			NWidgetFunction(MakeCargoButtons),
 			NWidget(WWT_PANEL, COLOUR_GREY), SetResize(0, 1), EndContainer(),
 		EndContainer(),
@@ -635,6 +664,124 @@ void ShowCommandsToolbar()
 	// DeleteWindowByClass(WC_COMMAND_TOOLBAR);
 	// AllocateWindowDescFront<CommandsToolbarWindow>(&_commands_toolbar_desc, 0);
 }
+
+/* for server buttons */
+/** To handle Community Server list */
+class CommunityServerManager: public HTTPCallback {
+ public:
+       CommunityServerManager() {}
+
+       void initiateServerSequence(const std::string &uri)
+	   {
+		this->cursor = this->buf;
+		this->buf_last = buf + lengthof(buf) - 1;
+ 		NetworkHTTPSocketHandler::Connect(uri, this);
+       }
+
+       void SaveServerString() const {
+               _server_list_text += this->buf;
+        //NetworkClientSendChatToServer("*** data has been saved.");
+        if (FindWindowByClass(CM_WC_LOGIN_WINDOW)) ReloadServerButtons();
+               if (FindWindowByClass(WC_SELECT_GAME)) ReloadServerButtons();
+       }
+
+       void inspectServerData() {
+               if (this->cursor - this->buf >= 4) this->SaveServerString();
+               else {
+                       //NetworkClientSendChatToServer("*** no data has been received.");
+               }
+       }
+
+       void OnFailure() override {
+               ShowErrorMessage(GetEncodedString(CM_STR_SB_SERVER_LIST_UNREACHABLE), {}, WL_ERROR);
+        //NetworkClientSendChatToServer("*** connection failed.");
+       }
+       bool IsCancelled() const override { return false; }
+
+       void OnReceiveData(std::unique_ptr<char[]> data, size_t length) override
+       {
+               if (data.get() == nullptr)
+               {
+                       this->inspectServerData();
+            this->cursor = nullptr;
+               } else {
+            for (size_t i = 0; i < length && this->cursor < this->buf_last; i++, this->cursor++) {
+                               *(this->cursor) = data.get()[i];
+            }
+            *(this->cursor) = '\0';
+            //NetworkClientSendChatToServer("*** data received");
+        }
+
+       }
+
+ private:
+    char buf[4096]{};
+       char *buf_last{};
+    char *cursor{};
+};
+
+void CommunityServerManagerSend()
+{
+    std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+    std::string uri;
+
+    if (_community == 1) {
+        uri = fmt::format("http://n-ice.org/openttd/serverlist.txt");
+    } else if (_community == 2) {
+        uri = fmt::format("https://openttd.btpro.nl/btproservers.txt");
+    } else if (_community == 3) {
+        uri = fmt::format("http://altseehof.de/openttd/citymaniaservers.txt");
+    }
+
+       static CommunityServerManager servermgr{};
+       servermgr.initiateServerSequence(uri);
+}
+
+void GetCommunityServerListText(){
+    std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+       if(_fromlast == _community || _community == 0) return;
+       _fromlast = _community;
+       _server_list_text.clear();
+       CommunityServerManagerSend();
+}
+
+bool GetCommunityServer(int number, bool findonly) {
+
+       if(_server_list_text.empty()) return false;
+    _cc_address = "";
+    _cc_name = "";
+
+    std::string server;
+    std::string port;
+
+       if(number < 10) {
+               server = fmt::format("SERVER0{}", number);
+        port = fmt::format("PORT0{}", number);
+       } else {
+               server = fmt::format("SERVER{}", number);
+               port = fmt::format("PORT{}", number);
+       }
+       size_t posaddress = _server_list_text.find(server);
+       size_t posport = _server_list_text.find(port);
+       if(posaddress != std::string::npos && posport != std::string::npos){
+               std::string saddress = _server_list_text.substr(posaddress + 10, _server_list_text.find(";", posaddress + 10) - posaddress - 10);
+               std::string sport = _server_list_text.substr(posport + 8, _server_list_text.find(";", posport + 8) - posport - 8);
+
+               if(saddress.compare("DISABLED") == 0) return false;
+               else if(findonly) return true;
+
+               _cc_address = saddress;
+               _cc_porti = std::stoi(sport);
+
+               return true;
+       }
+       else if(findonly) return false;
+
+       ShowErrorMessage(GetEncodedString(CM_STR_SB_SERVER_LIST_ERROR_FILE), {} ,WL_ERROR);
+       return false;
+}
+/* end of serverbuttons */
+
 
 // login window
 class GetHTTPContent: public HTTPCallback {
@@ -770,6 +917,18 @@ struct LoginWindow : public Window { LoginWindowQueryWidgets query_widget;
 		
 	}
 
+	void Close([[maybe_unused]] int data) override
+	{
+		CloseWindowByClass(CM_WC_SERVER_BUTTONS);
+		this->Window::Close();
+    }
+
+ 	void DrawWidget([[maybe_unused]] const Rect &r, [[maybe_unused]] WidgetID widget) const override
+	{
+		ShowServerButtons(this->left, this->top, this->height);
+	}
+
+
 	std::string GetWidgetString(WidgetID widget, StringID stringid) const override
 	{
     switch (widget) {
@@ -820,13 +979,12 @@ struct LoginWindow : public Window { LoginWindowQueryWidgets query_widget;
                 }
 			}
 			default: return this->Window::GetWidgetString(widget, stringid);
-		}	
+		}
 	}
 
 	void OnClick([[maybe_unused]] Point pt, int widget, [[maybe_unused]] int click_count) override
 	{
 		switch (widget) {
-            
 			case LWW_USER_NAME: {
 				this->query_widget = (LoginWindowQueryWidgets)widget;
 				ShowQueryString("", CM_STR_LOGIN_WINDOW_CHANGE_USERNAME, MAX_COMMUNITY_STRING_LEN, this, CS_ALPHANUMERAL, {});
@@ -926,7 +1084,7 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
         : Window(desc) {
 
         this->InitNested(window_number);
-        
+
         /* disable not supported buttons for n-ice */
         if (GetServerItem(COMMUNITY) == "1") {
             this->DisableWidget(ACB_COMPANY_SUSPEND);
@@ -937,7 +1095,6 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 
 		/* caption of window in company colour */
 		this->owner = Owner(static_cast<uint8_t>(window_number) - 1);
-        
     }
 
 	static void CWCompanyResetCallback(Window* w, bool confirmed)
@@ -1065,13 +1222,13 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 				MarkWholeScreenDirty();
 				break;
 			case ACBQ_COMPANY_NEWSTICKET: {
-                std::string buffer = GetString(STR_COMPANY_NAME); 
+                std::string buffer = GetString(STR_COMPANY_NAME);
 				NetworkClientSendChatToServer(fmt::format("!news {}: {}", buffer, str.value()));
 				MarkWholeScreenDirty();
 				break;
 			}
 			case ACBQ_COMPANY_NEWSTICKET_COMP: {
-				std::string buffer = GetString(STR_COMPANY_NAME); 
+				std::string buffer = GetString(STR_COMPANY_NAME);
 				NetworkClientSendChatToServer(fmt::format("!news {} {}", _company, str.value()));
 				MarkWholeScreenDirty();
 				break;
@@ -1083,9 +1240,197 @@ struct AdminCompanyButtonsWindow : Window { AdminCompanyButtonsQueryWidgets quer
 			}
 		}
 	}
-
-
 };
+
+struct JoinLastServerWindow : Window {
+
+    JoinLastServerWindow(WindowDesc &desc, WindowNumber window_number)
+        : Window(desc) {
+
+        this->InitNested(window_number);
+
+               if (_settings_client.network.last_joined == "")
+            this->DisableWidget(LSW_BUTTON);
+
+               //call for intro menue
+               ShowServerButtons(ls_left, ls_top, ls_height);
+    }
+
+       virtual void OnClick([[maybe_unused]] Point pt, int widget,[[maybe_unused]] int click_count)
+       {
+        switch (widget) {
+            case LSW_BUTTON: {
+                               std::string _server = _settings_client.network.last_joined;
+                if (_ctrl_pressed)
+                    NetworkClientConnectGame(_server, COMPANY_NEW_COMPANY);
+                               else
+                                       NetworkClientConnectGame(_server, COMPANY_SPECTATOR);
+                       }
+            break;
+        }
+       };
+};
+struct ServerButtonsWindow : Window {
+    ServerButtonsQueryWidgets query_widget{};
+
+       std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+
+    ServerButtonsWindow(WindowDesc &desc, WindowNumber window_number) : Window(desc) {
+
+               this->InitNested(window_number);
+
+               if(_community == 1){
+            this->GetWidget<NWidgetCore>(WID_SB_SELECT_NICE)->colour = COLOUR_ORANGE;
+               }
+               else if(_community == 2){
+                       this->GetWidget<NWidgetCore>(WID_SB_SELECT_BTPRO)->colour = COLOUR_ORANGE;
+               }
+               else if(_community == 3){
+                       this->GetWidget<NWidgetCore>(WID_SB_SELECT_CITYMANIA)->colour = COLOUR_ORANGE;
+               }
+       }
+
+       virtual void OnClick([[maybe_unused]] Point pt, int widget, [[maybe_unused]] int click_count)
+       {
+               switch (widget) {
+            case WID_SB_SELECT_NICE:
+                SetServerItem(COMMUNITY, "1");
+                               GetCommunityServerListText();
+                               break;
+            case WID_SB_SELECT_BTPRO:
+                SetServerItem(COMMUNITY, "2");
+                GetCommunityServerListText();
+                break;
+            case WID_SB_SELECT_CITYMANIA:
+                SetServerItem(COMMUNITY, "3");
+                GetCommunityServerListText();
+                break;
+            default:
+                if (widget >= AC_SERVERS) {
+                    if (GetCommunityServer(widget - AC_SERVERS + 1,false)) {
+                        if (_ctrl_pressed) {
+                            NetworkClientConnectGame(fmt::format("{}:{}", _cc_address, _cc_porti), COMPANY_NEW_COMPANY);
+                        } else {
+                                                       NetworkClientConnectGame(fmt::format("{}:{}", _cc_address, _cc_porti), COMPANY_SPECTATOR);
+                        }
+                    }
+                } else ShowErrorMessage(GetEncodedString(CM_STR_SB_SERVER_DISABLED), {}, WL_ERROR);
+                break;
+               }
+       }
+       static void GetServerName(int number)
+       {
+        size_t poscount = _server_list_text.find("servercount");
+               std::string scount = _server_list_text.substr(poscount + 12, 3);
+        _servercount = std::stoi(scount);
+
+               std::string name;
+               if (number < 10){
+                       name = fmt::format("NAME0{}",number);
+               } else {
+                       name = fmt::format("NAME{}",number);
+               }
+               std::string server;
+               if (number < 10){
+                       server = fmt::format("SERVER0{}",number);
+               } else {
+                       server = fmt::format("SERVER{}",number);
+               }
+               size_t posname = _server_list_text.find(name);
+               std::string sname = _server_list_text.substr(posname + 8, _server_list_text.find(";", posname + 8) - posname - 8);
+
+               if (number > _servercount)
+                    _cc_name = "-";
+                else
+                    _cc_name = sname;
+       };
+
+       virtual void DrawWidget(const Rect &r, int widget) const override
+       {
+               std::string name;
+
+               switch (widget) {
+            case AC_SERVERS:
+                       default:
+                               if(widget >= AC_SERVERS){
+                                       if(widget - AC_SERVERS + 1 < 10){
+                        name = fmt::format("NAME0{}",widget - AC_SERVERS +1);
+                                       }
+                                       else {
+                                               name = fmt::format("NAME{}",widget - AC_SERVERS +1);
+                                       }
+                                       size_t posname = _server_list_text.find(name);
+                                       std::string sname = _server_list_text.substr(posname + 8, _server_list_text.find(";", posname + 8) - posname - 8);
+                                       _cc_name = sname;
+
+                                       DrawString(r.left, r.right, r.top + 3, GetString(CM_STR_SB_NETWORK_DIRECT_JOIN_GAME, _cc_name), TC_FROMSTRING, SA_CENTER);
+                               }
+                               break;
+               }
+       }
+ };
+
+std::unique_ptr<NWidgetBase> MakeServerButtons()
+{
+       std::int8_t _community = stoi(GetServerItem(COMMUNITY));
+       auto ver = std::make_unique<NWidgetVertical>();
+
+       if(_community == 0 || _server_list_text.empty()){
+               auto leaf = std::make_unique<NWidgetBackground>(WWT_PANEL, COLOUR_GREY, AC_SERVERS);
+               ver->Add(std::move(leaf));
+               return ver;
+       }
+
+    /* check for disabled server from serverlist file */
+        int active = 0, aactive[50]{}, s_max = 0;
+       if (_community == 1) s_max = 50; //for n-ice
+       if (_community == 2) s_max = 30; //for btpro
+    if (_community == 3) s_max = 10; //for citymania
+       for (int i = 0; i < s_max; i++) {
+        aactive[i] = GetCommunityServer(i + 1, true) ? (i + 1) : 0; //server disabled?
+        active++;
+    }
+
+       auto hor = std::make_unique<NWidgetHorizontal>();
+       int i1 = 0, i2 = 0;
+       for (int i = 0; i < s_max; i++) {
+               if ((aactive[i] == 0) && (_community == 1)) continue; //hide button if disabled - for n-ice only
+               i2++;
+               if ((i1 == 5) || (i1 == 10) || (i1 == 15) || (i1 == 20) || (i1 == 25) || (i1 == 30) || (i1 == 35) || (i1 == 40) || (i1 == 45) || (i1 == 50)) {
+                       i2=0;
+                       auto spce = std::make_unique<NWidgetSpacer>(3, 0);
+                       spce->SetFill(1, 0);
+                       hor->Add(std::move(spce));
+                       ver->Add(std::move(hor));
+                       auto spc = std::make_unique<NWidgetSpacer>(0, 4);
+                       spc->SetFill(1, 0);
+                       ver->Add(std::move(spc));
+                       hor = std::make_unique<NWidgetHorizontal>();
+               }
+               auto spce = std::make_unique<NWidgetSpacer>(4, 0);
+               spce->SetFill(1, 0);
+               hor->Add(std::move(spce));
+               auto leaf = std::make_unique<NWidgetBackground>(WWT_PANEL, COLOUR_ORANGE, AC_SERVERS + i);
+               if(aactive[i] == 0) leaf->SetDisabled(true);
+               leaf->SetStringTip(CM_STR_SB_NETWORK_DIRECT_JOIN_GAME, CM_STR_SB_NETWORK_DIRECT_JOIN_TOOLTIP);
+               leaf->SetMinimalSize(79, 15);
+               hor->Add(std::move(leaf));
+               i1++;
+       }
+
+       /* arrange buttons @ last line */
+       if (i2==0) i2=375;
+       if (i2==1) i2=282;
+       if (i2==2) i2=189;
+       if (i2==3) i2=96;
+       if (i2==4) i2=3;
+       auto spce = std::make_unique<NWidgetSpacer>(i2, 0);
+       spce->SetFill(1, 0);
+       hor->Add(std::move(spce));
+       ver->Add(std::move(hor));
+       return ver;
+}
+
 
 /* user login */
 static constexpr std::initializer_list<NWidgetPart> _nested_login_window_widgets = {
@@ -1229,6 +1574,16 @@ static constexpr std::initializer_list<NWidgetPart> _nested_admin_company_window
 	EndContainer(),
 };
 
+static constexpr std::initializer_list<NWidgetPart> _nested_last_server_widgets = {
+NWidget(WWT_PANEL, COLOUR_BROWN), SetFill(0, 1),
+	NWidget(NWID_HORIZONTAL), SetPadding(WidgetDimensions::unscaled.sparse),
+		NWidget(NWID_SPACER), SetMinimalSize(81, 0), SetFill(1, 0),
+		NWidget(WWT_PUSHTXTBTN, COLOUR_ORANGE, LSW_BUTTON), SetMinimalSize(242, 15), SetAlignment(SA_CENTER), SetStringTip(CM_STR_SB_LAST_SERVER, CM_STR_SB_NETWORK_DIRECT_JOIN_TOOLTIP), SetFill(1, 1),
+		NWidget(NWID_SPACER), SetMinimalSize(81, 0), SetFill(1, 0),
+	EndContainer(),
+EndContainer(),
+};
+
 
 /* Identify the current community */
 void CheckCommunity() {
@@ -1253,6 +1608,21 @@ void CheckCommunity() {
     }
 };
 
+static constexpr std::initializer_list<NWidgetPart> _nested_server_buttons_window_widgets = {
+       NWidget(WWT_PANEL, COLOUR_BROWN), SetFill(0, 1),
+               NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize), SetPadding(4), SetPIP(0, 7, 0),
+                               NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SB_SELECT_NICE), SetMinimalSize(134, 13), SetStringTip(CM_STR_SB_SELECT_NICE, 0),
+                               NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SB_SELECT_BTPRO), SetMinimalSize(134, 13), SetStringTip(CM_STR_SB_SELECT_BTPRO, 0),
+                               NWidget(WWT_PUSHTXTBTN, COLOUR_GREY, WID_SB_SELECT_CITYMANIA), SetMinimalSize(134, 13), SetStringTip(CM_STR_SB_SELECT_CITYMANIA, 0),
+               EndContainer(),
+               NWidget(NWID_SPACER), SetMinimalSize(0, 3),
+               NWidget(NWID_HORIZONTAL, NWidContainerFlag::EqualSize),
+                       NWidgetFunction(MakeServerButtons),
+               EndContainer(),
+               NWidget(NWID_SPACER), SetMinimalSize(0, 3),
+    EndContainer(),
+};
+
 void CheckAdmin() {
     IniLoginInitiate();
     if (GetLoginItem(ADMIN) == "1")
@@ -1267,7 +1637,20 @@ static WindowDesc _login_window_desc(
 	_nested_login_window_widgets
 );
 
-/* admin login */ 
+static WindowDesc _last_server_desc(
+	WDP_AUTO, "cm_last_server", 0, 0,
+	CM_LAST_SERVER,
+	WC_NONE, WindowDefaultFlag::Construction,
+	_nested_last_server_widgets);
+
+static WindowDesc _server_buttons_desc(
+	WDP_AUTO, "cm_server_buttons", 0, 0,
+	CM_WC_SERVER_BUTTONS, WC_NONE,
+	WindowDefaultFlag::Construction,
+	_nested_server_buttons_window_widgets);
+
+
+/* admin login */
 static WindowDesc _admin_window_desc(
 	WDP_CENTER, "cm_commands", 0, 0,
 	CM_WC_LOGIN_WINDOW, WC_NONE,
@@ -1275,13 +1658,47 @@ static WindowDesc _admin_window_desc(
 	_nested_admin_window_widgets
 );
 
-/* admin company buttons */ 
+/* admin company buttons */
 static WindowDesc _admin_company_buttons_desc(
 	WDP_AUTO, "cm_commands", 0, 0,
     CM_WC_ADMIN_COMPANY_BUTTONS, WC_NONE,
     WindowDefaultFlag::Construction,
     _nested_admin_company_window_widgets
 );
+
+void ShowServerButtons(int left, int top, int height) {
+
+       _left = left;
+    _top = top;
+    _height = height;
+
+       IniLoginInitiate();
+    if (!FileExists(_personal_dir + "/citymania.cfg"))
+               return;
+
+       /* create window at coordinates */
+    Window *b;
+    if (FindWindowByClass(CM_WC_SERVER_BUTTONS))
+               CloseWindowByClass(CM_WC_SERVER_BUTTONS);
+    b = new ServerButtonsWindow(_server_buttons_desc, 0);
+    b->top = top+height;
+    b->left = left;
+    b->SetDirty();
+};
+
+void ReloadServerButtons() {
+       ShowServerButtons(_left, _top, _height);
+}
+
+void CreateCommunityServerList() {
+    IniLoginInitiate();
+    CheckCommunity();
+    if (!_admin)
+        AllocateWindowDescFront<LoginWindow>(_login_window_desc, 0);
+    else
+        AllocateWindowDescFront<LoginWindow>(_admin_window_desc, 0);
+ };
+
 
 /* user/admin login window*/
 void ShowLoginWindow() {
@@ -1325,6 +1742,18 @@ void ShowAdminCompanyButtons(int left, int top, int width, int company2, bool dr
     w->SetDirty();
 };
 
+/* last server widget */
+void JoinLastServer(int left, int top, int height) {
+    if (FindWindowByClass (CM_LAST_SERVER))
+               CloseWindowByClass(CM_LAST_SERVER);
+    Window *d;
+    d = new JoinLastServerWindow(_last_server_desc, 0);
+    d->top = top + height;
+    d->left = left;
+    ls_left = left;
+    ls_top = d->top;
+    ls_height = d->height;
+}
 
 
 } // namespace citymania
